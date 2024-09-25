@@ -17,11 +17,11 @@ public class AppController {
         return "Welcome to public endpoint!";
     }
 
-    @GetMapping("/private")
-    public String privateEndpoint(Authentication authentication) {
-        // Zwróć nazwę użytkownika z tokenu JWT
-        return "Zalogowany użytkownik: " + authentication.getName();
-    }
+//    @GetMapping("/private")
+//    public String privateEndpoint(Authentication authentication) {
+//        // Zwróć nazwę użytkownika z tokenu JWT
+//        return "Zalogowany użytkownik: " + authentication.getName();
+//    }
 
 //    @GetMapping("/private")
 //    public String privateArea() {
