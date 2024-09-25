@@ -5,13 +5,11 @@ import { useCookies } from 'react-cookie';
 export function LoginPage()  {
 
     const [authenticated, setAuthenticated] = useState(false);
-    const [loading, setLoading] = useState(false);
     const [user, setUser] = useState(undefined);
     const [cookies] = useCookies(['XSRF-TOKEN']);
 
     useEffect(() => {
-        setLoading(true);
-        fetch('/user', { credentials: 'include' })
+        fetch('/api/user', { credentials: 'include' })
             .then(response => response.text())
             .then(body => {
                 if (body === '') {
@@ -20,9 +18,8 @@ export function LoginPage()  {
                     setUser(JSON.parse(body));
                     setAuthenticated(true);
                 }
-                setLoading(false);
             });
-    }, [setAuthenticated, setLoading, setUser])
+    }, [setAuthenticated, setUser])
 
     const login = () => {
         let port = (window.location.port ? ':' + window.location.port : '');
@@ -48,6 +45,7 @@ export function LoginPage()  {
     const message = user ?
         <h2>Welcome, {user.name}!</h2> :
         <p>Please log in to manage account</p>;
+
 
     const button = authenticated ?
         <div>

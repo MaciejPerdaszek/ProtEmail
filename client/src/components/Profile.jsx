@@ -40,15 +40,15 @@ export function Profile () {
 
   return (
     <div>
-      <button onClick={home}>Home</button>
-      {isAuthenticated ? (
-        <div>
-          <h2>Welcome {user.name}!</h2>
-          <button onClick={fetchPrivateData}>Fetch Private Data</button>
-        </div>
-      ) : (
-        <h2>You are not logged in!</h2>
-      )}
+      {/*<button onClick={home}>Home</button>*/}
+      {/*{isAuthenticated ? (*/}
+      {/*  <div>*/}
+      {/*    <h2>Welcome {user.name}!</h2>*/}
+      {/*    <button onClick={fetchPrivateData}>Fetch Private Data</button>*/}
+      {/*  </div>*/}
+      {/*) : (*/}
+      {/*  <h2>You are not logged in!</h2>*/}
+      {/*)}*/}
     </div>
   );
 }
