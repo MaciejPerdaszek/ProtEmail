@@ -1,0 +1,44 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    font-family: Arial, sans-serif;
+}
+
+.landing-page {
+    height: 100vh;
+    width: 100%;
+    position: relative;
+}
+
+.background-image {
+    height: 100%;
+    width: 100%;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    position: relative;
+    filter: brightness(0.8);
+}
+
+.content {
+    color: white;
+    text-align: center;
+    padding-bottom: 50px;
+}
+
+h1 {
+    font-size: 3rem;
+    font-weight: 300;
+}
+
+.subtitle {
+    font-size: 1.5rem;
+    margin-top: 10px;
+}
