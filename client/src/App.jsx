@@ -10,7 +10,7 @@ function App() {
     const [user, setUser] = useState(undefined);
 
     useEffect(() => {
-        fetch('/api/user', { credentials: 'include' })
+        fetch('/api/auth/user', { credentials: 'include' })
             .then(response => {
                 if (!response.ok) {
                     setAuthenticated(false);

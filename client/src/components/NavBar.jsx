@@ -18,7 +18,7 @@ export function NavBar({ authenticated, user, setAuthenticated }) {
     }
 
     const logout = () => {
-        fetch('/api/logout', {
+        fetch('/api/auth/logout', {
             method: 'POST', credentials: 'include',
             headers: { 'X-XSRF-TOKEN': cookies['XSRF-TOKEN'] }
         })
