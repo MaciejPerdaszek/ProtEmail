@@ -5,8 +5,8 @@ import lombok.Data;
 
 @Data
 @Entity
-@Table(name = "phishing_scan_results")
-public class PhishingScanResult {
+@Table(name = "scan_results")
+public class ScanResult {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

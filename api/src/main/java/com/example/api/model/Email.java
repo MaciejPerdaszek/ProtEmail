@@ -20,5 +20,5 @@ public class Email {
     private Mailbox mailbox;
 
     @OneToOne(mappedBy = "email", cascade = CascadeType.ALL)
-    private PhishingScanResult phishingScanResult;
+    private ScanResult phishingScanResult;
 }
