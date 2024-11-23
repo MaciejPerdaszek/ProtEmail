@@ -34,6 +34,15 @@ public class AuthController {
         }
     }
 
+    @GetMapping("/token")
+    public ResponseEntity<?> getToken(@AuthenticationPrincipal(expression = "idToken") OidcIdToken idToken) {
+        if (idToken == null) {
+            return new ResponseEntity<>("", HttpStatus.OK);
+        } else {
+            return ResponseEntity.ok().body(idToken);
+        }
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest request,
                                     @AuthenticationPrincipal(expression = "idToken") OidcIdToken idToken) {

@@ -2,10 +2,13 @@ package com.example.api;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtDecoders;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -23,6 +26,9 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Value("${okta.oauth2.issuer}")
+    private String issuer;
+
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -37,9 +43,17 @@ public class SecurityConfig {
                                 "/*.ico", "/*.json", "/*.png", "/api/auth/user").permitAll()
                         .anyRequest().authenticated()
                 )
+                .oauth2ResourceServer((oauth2) -> oauth2
+                        .jwt(jwt -> jwt.decoder(jwtDecoder()))
+                )
                 .addFilterAfter(new CookieCsrfFilter(), BasicAuthenticationFilter.class)
                 .oauth2Login(withDefaults());
         return http.build();
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder() {
+        return JwtDecoders.fromIssuerLocation(issuer);
     }
 
     @Bean

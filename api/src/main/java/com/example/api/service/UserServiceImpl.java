@@ -1,6 +1,7 @@
 package com.example.api.service;
 
 import java.util.List;
+import com.example.api.controller.exception.UserAlreadyExistException;
 import com.example.api.model.User;
 import com.example.api.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,10 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User saveUser(User theUser) {
+        User existingUser = userRepository.findByEmail(theUser.getEmail());
+        if (existingUser != null) {
+            throw new UserAlreadyExistException("User with email " + theUser.getEmail() + " already exists");
+        }
         return userRepository.save(theUser);
     }
 
