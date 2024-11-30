@@ -1,5 +1,5 @@
 import React from "react";
-import { Navbar } from 'reactstrap';
+import {Navbar, Button, Container} from 'reactstrap';
 import '../stylings/NavBar.css';
 import { Link } from "react-router-dom";
 import {useCookies} from "react-cookie";
@@ -30,9 +30,9 @@ export function NavBar({ authenticated, user, setAuthenticated }) {
     }
 
     return (
-        <div>
-            <Navbar color="light" light expand="md" style={{width: '100%'}}>
-                <header className="navbar">
+        <Container>
+            <Navbar className="navbar">
+                <div className="maindiv">
                     <div className="logo" onClick={() => {  window.location.href = '/'; }}>ProtEmail</div>
                     <nav className="nav-links">
                         <Link to="#dashboard">Dashboard</Link>
@@ -41,12 +41,12 @@ export function NavBar({ authenticated, user, setAuthenticated }) {
                         <Link to="#settings">Settings</Link>
                     </nav>
                     {authenticated ? (
-                        <button className="logout-button" onClick={() => logout()}>Logout</button>
+                        <Button className="logout-button" onClick={() => logout()}>Logout</Button>
                     ) : (
-                        <button className="login-button" onClick={() => login()}>Login</button>
+                        <Button className="login-button" onClick={() => login()}>Login</Button>
                     )}
-                </header>
+                </div>
             </Navbar>
-        </div>
+        </Container>
     );
 }

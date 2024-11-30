@@ -1,6 +1,72 @@
-.profile {
+.profile-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     height: 100vh;
-    width: 100%;
-    position: relative;
+    background-image: url('/main2.jpg');
+    background-repeat: no-repeat;
+    padding: 40px;
 }
 
+.profile-card {
+    background-color: rgba(45, 44, 44, 0.7);
+    border-radius: 15px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+    width: 600px;
+    padding: 30px;
+}
+
+.profile-title {
+    color: #ffffff;
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2.5rem;
+}
+
+.profile-text {
+    color: #cccccc;
+    margin: 15px 0;
+    font-size: 1.2rem;
+    text-align: center;
+}
+
+.profile-label {
+    display: block;
+    color: #aaaaaa;
+    margin-bottom: 8px;
+    font-size: 1.1rem;
+    text-align: left;
+}
+
+.profile-input {
+    width: 100%;
+    padding: 15px;
+    margin-bottom: 20px;
+    background-color: #383737;
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.1rem;
+}
+
+.profile-input:focus {
+    outline: none;
+    box-shadow: 0 0 8px #417a7a;
+}
+
+.profile-button {
+    width: 100%;
+    padding: 15px;
+    background-color: #42a9af;
+    border: none;
+    border-radius: 10px;
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.profile-button:hover {
+    background-color: #2b5656;
+}

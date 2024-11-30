@@ -1,6 +1,7 @@
-package com.example.api.controller.exception;
+package com.example.api.exception;
 
 public class UserAlreadyExistException extends RuntimeException {
+
     public UserAlreadyExistException(Throwable cause) {
         super(cause);
     }

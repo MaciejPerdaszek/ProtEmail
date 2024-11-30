@@ -1,7 +1,8 @@
 package com.example.api.service;
 
 import java.util.List;
-import com.example.api.controller.exception.UserAlreadyExistException;
+import com.example.api.exception.UserAlreadyExistException;
+import com.example.api.exception.UserNotFound;
 import com.example.api.model.User;
 import com.example.api.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -22,7 +23,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User getUserById(long theId) {
-        return userRepository.findById(theId).orElseThrow(() -> new RuntimeException("Did not find user id - " + theId));
+        return userRepository.findById(theId).orElseThrow(() -> new UserNotFound("Did not find user id - " + theId));
     }
 
     @Override

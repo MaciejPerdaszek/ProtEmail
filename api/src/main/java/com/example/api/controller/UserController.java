@@ -1,11 +1,8 @@
 package com.example.api.controller;
 
 import java.util.List;
-import com.example.api.controller.exception.ErrorResponse;
-import com.example.api.controller.exception.UserAlreadyExistException;
 import com.example.api.model.User;
 import com.example.api.service.UserService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,15 +29,9 @@ public class UserController {
     }
 
     @PostMapping("/")
-    ResponseEntity<?> saveUser(@RequestBody User user) {
-        try {
-            User savedUser = userService.saveUser(user);
-            return ResponseEntity.ok(savedUser);
-        } catch (UserAlreadyExistException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(e.getMessage()));
-        }
+    ResponseEntity<User> saveUser(@RequestBody User user) {
+        User savedUser = userService.saveUser(user);
+        return ResponseEntity.ok(savedUser);
     }
 
     @DeleteMapping("/{userId}")
