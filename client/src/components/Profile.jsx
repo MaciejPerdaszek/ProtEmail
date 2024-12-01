@@ -1,10 +1,10 @@
 import React from "react";
 import '../stylings/Profile.css';
-import { useState } from "react";
+import {useState} from "react";
 import {useCookies} from "react-cookie";
-import { Button, Card, CardBody, CardTitle, Col, Container, Form, FormGroup, Input, Label, Row } from "reactstrap";
+import {Button, Card, CardBody, CardTitle, Col, Container, Form, FormGroup, Input, Label, Row} from "reactstrap";
 
-export function Profile ({ user }) {
+export function Profile({user}) {
 
     const [newEmail, setNewEmail] = useState("");
     const [cookies] = useCookies(['XSRF-TOKEN']);
@@ -24,7 +24,7 @@ export function Profile ({ user }) {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ newEmail: newEmail }),
+                body: JSON.stringify({newEmail: newEmail}),
                 credentials: 'include'
             });
 
@@ -34,7 +34,7 @@ export function Profile ({ user }) {
                 if (data.requireRelogin) {
                     fetch('/api/auth/logout', {
                         method: 'POST', credentials: 'include',
-                        headers: { 'X-XSRF-TOKEN': cookies['XSRF-TOKEN'] }
+                        headers: {'X-XSRF-TOKEN': cookies['XSRF-TOKEN']}
                     })
                         .then(res => res.json())
                         .then(response => {
@@ -53,8 +53,6 @@ export function Profile ({ user }) {
         } catch (error) {
             console.error("Error:", error);
             alert("Failed to change email. Please try again.");
-        } finally {
-            setLoading(false);
         }
     };
 

@@ -1,10 +1,10 @@
 import React from "react";
-import {Navbar, Button, Container} from 'reactstrap';
+import {Navbar, Button, Container, Nav} from 'reactstrap';
 import '../stylings/NavBar.css';
-import { Link } from "react-router-dom";
+import {Link} from "react-router-dom";
 import {useCookies} from "react-cookie";
 
-export function NavBar({ authenticated, user, setAuthenticated }) {
+export function NavBar({authenticated, user, setAuthenticated}) {
 
     const [cookies] = useCookies(['XSRF-TOKEN']);
 
@@ -20,7 +20,7 @@ export function NavBar({ authenticated, user, setAuthenticated }) {
     const logout = () => {
         fetch('/api/auth/logout', {
             method: 'POST', credentials: 'include',
-            headers: { 'X-XSRF-TOKEN': cookies['XSRF-TOKEN'] }
+            headers: {'X-XSRF-TOKEN': cookies['XSRF-TOKEN']}
         })
             .then(res => res.json())
             .then(response => {
@@ -32,20 +32,22 @@ export function NavBar({ authenticated, user, setAuthenticated }) {
     return (
         <Container>
             <Navbar className="navbar">
-                <div className="maindiv">
-                    <div className="logo" onClick={() => {  window.location.href = '/'; }}>ProtEmail</div>
-                    <nav className="nav-links">
-                        <Link to="#dashboard">Dashboard</Link>
-                        <Link to="#reports">Reports</Link>
+                <Container className="maindiv">
+                    <Container className="logo" onClick={() => {
+                        window.location.href = '/';
+                    }}>ProtEmail</Container>
+                    <Nav className="nav-links">
+                        <Link to="/dashboard">Dashboard</Link>
+                        <Link to="/scanlog">Scan logs</Link>
                         <Link to="/profile">Profile</Link>
-                        <Link to="#settings">Settings</Link>
-                    </nav>
+                        <Link to="/settings">Settings</Link>
+                    </Nav>
                     {authenticated ? (
                         <Button className="logout-button" onClick={() => logout()}>Logout</Button>
                     ) : (
                         <Button className="login-button" onClick={() => login()}>Login</Button>
                     )}
-                </div>
+                </Container>
             </Navbar>
         </Container>
     );

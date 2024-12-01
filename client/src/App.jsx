@@ -1,8 +1,12 @@
-import { Profile } from "./components/Profile";
-import { NavBar } from "./components/NavBar";
-import { HomePage } from "./components/HomePage";
-import React, { useEffect, useState } from "react";
-import { BrowserRouter as Router, Routes, Route} from "react-router-dom";
+import {Profile} from "./components/Profile";
+import {NavBar} from "./components/NavBar";
+import {HomePage} from "./components/HomePage";
+import {DashBoard} from "./components/DashBoard";
+import {ScanLog} from "./components/Scanlog.jsx";
+import {SettingsCom} from "./components/Settings.jsx";
+import {Mailbox} from "./components/Mailbox.jsx";
+import React, {useEffect, useState} from "react";
+import {BrowserRouter as Router, Routes, Route} from "react-router-dom";
 import {useCookies} from "react-cookie";
 
 function App() {
@@ -13,7 +17,7 @@ function App() {
     const [cookies] = useCookies(['XSRF-TOKEN']);
 
     useEffect(() => {
-        fetch('/api/auth/user', { credentials: 'include' })
+        fetch('/api/auth/user', {credentials: 'include'})
             .then(response => {
                 if (!response.ok) {
                     setAuthenticated(false);
@@ -40,7 +44,7 @@ function App() {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({email}),
                 credentials: 'include'
             })
                 .then(response => {
@@ -53,10 +57,14 @@ function App() {
 
     return (
         <Router>
-            <NavBar authenticated={authenticated} user={user} setAuthenticated={setAuthenticated} />
+            <NavBar authenticated={authenticated} user={user} setAuthenticated={setAuthenticated}/>
             <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/profile" element={<Profile user={user} />} />
+                <Route path="/" element={<HomePage/>}/>
+                <Route path="/dashboard" element={<DashBoard user={user}/>}/>
+                <Route path="/scanlog" element={<ScanLog/>}/>
+                <Route path="/profile" element={<Profile user={user}/>}/>
+                <Route path="/settings" element={<SettingsCom/>}/>
+                <Route path="/mailbox/:email" element={<Mailbox/>}/>
             </Routes>
         </Router>
     );
