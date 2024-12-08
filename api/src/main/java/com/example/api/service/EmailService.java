@@ -1,6 +1,7 @@
 package com.example.api.service;
 
 import java.util.List;
+import com.example.api.dto.EmailConfigRequest;
 import com.example.api.model.Email;
 
 public interface EmailService {
@@ -12,4 +13,6 @@ public interface EmailService {
     Email saveEmail(Email theEmail);
 
     void deleteEmail(long theId);
+
+    List<Email> getEmailsFromMailbox(EmailConfigRequest config);
 }

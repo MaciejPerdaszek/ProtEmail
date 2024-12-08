@@ -144,6 +144,10 @@
     flex-shrink: 0;
 }
 
+.mailbox-item:hover {
+    background-color: #1E1E1E;
+}
+
 .mailbox-email-label {
     color: #20B2AA;
     font-weight: 500;

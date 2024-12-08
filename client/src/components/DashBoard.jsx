@@ -14,6 +14,7 @@ export function DashBoard({user}) {
     const [newPassword, setNewPassword] = useState("");
     const [mailboxes, setMailboxes] = useState([{email: "new@wp.pl", password: "password"},
         {email: "new1@wp.pl", password: "password"}]);
+    const [mailboxType, setMailboxType] = useState("imap");
     const navigate = useNavigate();
 
     const handleInputChange = (setter) => (e) => {
@@ -22,6 +23,7 @@ export function DashBoard({user}) {
 
     const handleAddMailbox = (e) => {
         e.preventDefault();
+        setMailboxType(e.target.value);
 
         setMailboxes((prevMailboxes) => [
             ...prevMailboxes,
@@ -70,6 +72,21 @@ export function DashBoard({user}) {
                                         className="form-input"
                                         required
                                     />
+                                </FormGroup>
+                                <FormGroup className="form-group">
+                                    <Label className="form-label">
+                                        Mailbox Type
+                                    </Label>
+                                    <select
+                                        name="language"
+                                        className="form-input"
+                                        onChange={handleInputChange}
+                                    >
+                                        <option value="wp">WP</option>
+                                        <option value="onet">Onet</option>
+                                        <option value="gmail">Gmail</option>
+                                        <option value="outlook">Outlook</option>
+                                    </select>
                                 </FormGroup>
                                 <Button type="submit" className="form-button">
                                     Add Mailbox
