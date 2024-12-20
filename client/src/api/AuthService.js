@@ -3,7 +3,7 @@ import axiosInstance from '../axiosConfig';
 export const AuthService = {
 
     logout: async () => {
-        const response = await axiosInstance.post('/auth/logout')
+        const response = await axiosInstance.post('/auth/logout');
         return response.data;
     },
 

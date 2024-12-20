@@ -2,12 +2,15 @@ import React, {useState} from 'react';
 import '../stylings/Mailbox.css';
 import {Container, Form, FormGroup, Label, Input, Button} from 'reactstrap';
 import {Mail, Search, Shield, Clock, AlertTriangle, Undo} from 'lucide-react';
-import {useNavigate, useParams} from "react-router-dom";
+import {useNavigate, useParams, useLocation} from "react-router-dom";
+import {EmailService} from "../api/EmailService.js";
 
 export function Mailbox() {
     const {email} = useParams();
+    const location = useLocation();
+    const mailbox = location.state;
     const [scanSettings, setScanSettings] = useState({
-        scanDepth: 50,
+        scanDepth: 5,
         autoScan: false,
         scanFrequency: 'daily',
         scanType: 'full'
@@ -35,6 +38,22 @@ export function Mailbox() {
             isScanning: true
         }));
     };
+
+    const handleGetEmail = async () => {
+        console.log('Getting email:', mailbox);
+
+        const imapData = {
+            host: mailbox.type,
+            username: mailbox.email,
+            password: mailbox.password,
+            messageCount: scanSettings.scanDepth
+        }
+
+        console.log('IMAP data:', imapData);
+
+        const data = await EmailService.fetchEmails(imapData);
+        console.log('Email data:', data);
+    }
 
     const handleClose = () => {
         navigate('/dashboard');
@@ -121,30 +140,31 @@ export function Mailbox() {
                         <AlertTriangle className="section-icon"/>
                         Scan Status
                     </h3>
-                    <div className="status-container">
-                        <div className="status-item">
-                            <Clock className="status-icon"/>
-                            <div className="status-info">
-                                <span className="status-label">Last Scan:</span>
-                                <span>{scanStatus.lastScan || 'Never'}</span>
-                            </div>
-                        </div>
+                    {/*<div className="status-container">*/}
+                    {/*    <div className="status-item">*/}
+                    {/*        <Clock className="status-icon"/>*/}
+                    {/*        <div className="status-info">*/}
+                    {/*            <span className="status-label">Last Scan:</span>*/}
+                    {/*            <span>{scanStatus.lastScan || 'Never'}</span>*/}
+                    {/*        </div>*/}
+                    {/*    </div>*/}
 
-                        <div className="status-item">
-                            <AlertTriangle className="status-icon"/>
-                            <div className="status-info">
-                                <span className="status-label">Threats Found:</span>
-                                <span>{scanStatus.threatsFound}</span>
-                            </div>
-                        </div>
-                    </div>
+                    {/*    <div className="status-item">*/}
+                    {/*        <AlertTriangle className="status-icon"/>*/}
+                    {/*        <div className="status-info">*/}
+                    {/*            <span className="status-label">Threats Found:</span>*/}
+                    {/*            <span>{scanStatus.threatsFound}</span>*/}
+                    {/*        </div>*/}
+                    {/*    </div>*/}
+                    {/*</div>*/}
 
                     <Button
-                        className={`scan-button ${scanStatus.isScanning ? 'scanning' : ''}`}
-                        onClick={handleStartScan}
-                        disabled={scanStatus.isScanning}
-                    >
-                        {scanStatus.isScanning ? 'Scanning...' : 'Start Scan'}
+                        className="scan-button"
+                        // className={`scan-button ${scanStatus.isScanning ? 'scanning' : ''}`}
+                        onClick={handleGetEmail}
+                        // disabled={scanStatus.isScanning}
+                    > Scan
+                        {/*{scanStatus.isScanning ? 'Scanning...' : 'Start Scan'}*/}
                     </Button>
                 </div>
             </div>

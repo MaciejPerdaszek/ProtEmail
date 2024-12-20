@@ -115,7 +115,7 @@ export function DashBoard({user}) {
     };
 
     const handleMailboxNavigate = useCallback((mailbox) => {
-        navigate(`/mailbox/${mailbox.email}`);
+        navigate(`/mailbox/${mailbox.email}`, { state: mailbox });
     }, [navigate]);
 
     const toggleDropdown = useCallback((index, e) => {

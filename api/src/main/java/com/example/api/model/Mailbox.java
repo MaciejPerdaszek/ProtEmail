@@ -15,6 +15,8 @@ public class Mailbox {
 
     private String email;
 
+    private String password;
+
     private String type;
 
     @ManyToOne
