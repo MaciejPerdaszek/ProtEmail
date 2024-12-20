@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import '../stylings/Mailbox.css';
-import { Container, Form, FormGroup, Label, Input, Button } from 'reactstrap';
-import { Mail, Search, Shield, Clock, AlertTriangle } from 'lucide-react';
-import {useParams} from "react-router-dom";
+import {Container, Form, FormGroup, Label, Input, Button} from 'reactstrap';
+import {Mail, Search, Shield, Clock, AlertTriangle, Undo} from 'lucide-react';
+import {useNavigate, useParams} from "react-router-dom";
 
-export function Mailbox ({onClose}) {
-    const { email } = useParams();
+export function Mailbox() {
+    const {email} = useParams();
     const [scanSettings, setScanSettings] = useState({
         scanDepth: 50,
         autoScan: false,
@@ -19,8 +19,10 @@ export function Mailbox ({onClose}) {
         threatsFound: 0
     });
 
+    const navigate = useNavigate();
+
     const handleScanSettingsChange = (e) => {
-        const { name, value, type, checked } = e.target;
+        const {name, value, type, checked} = e.target;
         setScanSettings(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
@@ -34,20 +36,24 @@ export function Mailbox ({onClose}) {
         }));
     };
 
+    const handleClose = () => {
+        navigate('/dashboard');
+    }
+
     return (
         <Container className="mailbox-detail-container">
             <Container className="mailbox-detail-header">
                 <Container className="mailbox-detail-title">
-                    <Mail className="mailbox-icon" />
+                    <Mail className="mailbox-icon"/>
                     <h2>{email}</h2>
                 </Container>
-                <Button className="close-button" onClick={onClose}>×</Button>
+                <Button className="close-button" onClick={handleClose}><Undo/></Button>
             </Container>
 
             <div className="mailbox-detail-content">
                 <div className="mailbox-detail-card">
                     <h3 className="detail-section-title">
-                        <Search className="section-icon" />
+                        <Search className="section-icon"/>
                         Scan Settings
                     </h3>
                     <Form>
@@ -103,7 +109,7 @@ export function Mailbox ({onClose}) {
                                 className="detail-checkbox"
                             />
                             <Label className="checkbox-label">
-                                <Shield className="checkbox-icon" />
+                                <Shield className="checkbox-icon"/>
                                 Enable Auto-Scan
                             </Label>
                         </FormGroup>
@@ -112,12 +118,12 @@ export function Mailbox ({onClose}) {
 
                 <div className="mailbox-detail-card">
                     <h3 className="detail-section-title">
-                        <AlertTriangle className="section-icon" />
+                        <AlertTriangle className="section-icon"/>
                         Scan Status
                     </h3>
                     <div className="status-container">
                         <div className="status-item">
-                            <Clock className="status-icon" />
+                            <Clock className="status-icon"/>
                             <div className="status-info">
                                 <span className="status-label">Last Scan:</span>
                                 <span>{scanStatus.lastScan || 'Never'}</span>
@@ -125,7 +131,7 @@ export function Mailbox ({onClose}) {
                         </div>
 
                         <div className="status-item">
-                            <AlertTriangle className="status-icon" />
+                            <AlertTriangle className="status-icon"/>
                             <div className="status-info">
                                 <span className="status-label">Threats Found:</span>
                                 <span>{scanStatus.threatsFound}</span>

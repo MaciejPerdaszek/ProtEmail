@@ -17,7 +17,7 @@ public class MailboxController {
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<List<Mailbox>> getUserMailboxes(@PathVariable long userId) {
+    public ResponseEntity<List<Mailbox>> getUserMailboxes(@PathVariable String userId) {
         List<Mailbox> mailboxes = mailboxService.getUserMailboxes(userId);
         return ResponseEntity.ok(mailboxes);
     }
@@ -29,9 +29,18 @@ public class MailboxController {
     }
 
     @PostMapping("/{userId}")
-    public ResponseEntity<Mailbox> addMailbox(@RequestBody Mailbox mailbox, @PathVariable long userId) {
+    public ResponseEntity<Mailbox> addMailbox(@RequestBody Mailbox mailbox, @PathVariable String userId) {
         Mailbox savedMailbox = mailboxService.addMailbox(mailbox, userId);
         return ResponseEntity.ok(savedMailbox);
+    }
+
+    @PutMapping("/{userId}/{mailboxId}")
+    public ResponseEntity<Mailbox> updateMailbox(
+            @RequestBody Mailbox mailbox,
+            @PathVariable String userId,
+            @PathVariable Long mailboxId) {
+        Mailbox updatedMailbox = mailboxService.updateMailbox(mailbox, userId, mailboxId);
+        return ResponseEntity.ok(updatedMailbox);
     }
 
     @DeleteMapping("/{mailboxId}")

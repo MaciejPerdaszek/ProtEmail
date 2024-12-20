@@ -159,6 +159,138 @@
     color: #9CA3AF;
 }
 
+.mailbox-actions {
+    position: relative;
+}
+
+.action-button {
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    color: #9CA3AF;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.action-button:hover {
+    color: #20B2AA;
+}
+
+.dropdown-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: #2A2A2A;
+    border: 1px solid #3A3A3A;
+    border-radius: 0.5rem;
+    min-width: 120px;
+    z-index: 1000;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    color: #D1D5DB;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+}
+
+.dropdown-item:hover {
+    background-color: #3A3A3A;
+    color: #20B2AA;
+}
+
+.popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.edit-popup {
+    background-color: #1E1E1E;
+    border: 1px solid #2A2A2A;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.popup-title {
+    color: #ffffff;
+    font-size: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.popup-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.popup-actions .form-button {
+    flex: 1;
+}
+
+.popup-actions .cancel-button {
+    flex: 1;
+    background-color: #3A3A3A;
+    color: #D1D5DB;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.popup-actions .cancel-button:hover {
+    background-color: #4A4A4A;
+}
+
+.mailbox-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mailbox-content {
+    flex: 1;
+    cursor: pointer;
+    padding-right: 1rem;
+}
+
+.cancel-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: #4A4A4A;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.cancel-button:hover {
+    color: #20B2AA;
+}
+
 @media (max-width: 1024px) {
     .dashboard-split {
         grid-template-columns: 1fr;
@@ -184,3 +316,5 @@
         font-size: 1.25rem;
     }
 }
+
+

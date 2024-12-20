@@ -5,10 +5,12 @@ import com.example.api.model.Mailbox;
 import com.example.api.model.User;
 import com.example.api.repository.MailboxRepository;
 import com.example.api.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
+@Slf4j
 public class MailboxServiceImpl implements MailboxService {
 
    private final MailboxRepository mailboxRepository;
@@ -21,7 +23,7 @@ public class MailboxServiceImpl implements MailboxService {
     }
 
     @Override
-    public List<Mailbox> getUserMailboxes(long userId) {
+    public List<Mailbox> getUserMailboxes(String userId) {
         return mailboxRepository.findByUserId(userId);
     }
 
@@ -31,8 +33,33 @@ public class MailboxServiceImpl implements MailboxService {
     }
 
     @Override
-    public Mailbox addMailbox(Mailbox mailbox, long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("Did not find user id - " + userId));
+    public Mailbox updateMailbox(Mailbox mailbox, String userId, Long mailboxId) {  // Renamed for clarity
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Did not find user id - " + userId));
+        mailbox.setId(mailboxId);
+
+        if (mailbox.getId() == null) {
+            throw new IllegalArgumentException("Mailbox ID cannot be null for update operation");
+        }
+
+        Mailbox existingMailbox = mailboxRepository.findById(mailbox.getId())
+                .orElseThrow(() -> new RuntimeException("Did not find mailbox id - " + mailbox.getId()));
+
+        existingMailbox.setEmail(mailbox.getEmail());
+        existingMailbox.setType(mailbox.getType());
+        existingMailbox.setUser(user);
+
+        return mailboxRepository.save(existingMailbox);
+    }
+
+    public Mailbox addMailbox(Mailbox mailbox, String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Did not find user id - " + userId));
+
+        if (mailbox.getId() != null) {
+            throw new IllegalArgumentException("New mailbox should not have an ID");
+        }
+
         mailbox.setUser(user);
         return mailboxRepository.save(mailbox);
     }

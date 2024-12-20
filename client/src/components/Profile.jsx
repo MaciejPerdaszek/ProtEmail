@@ -1,13 +1,13 @@
 import React from "react";
 import '../stylings/Profile.css';
 import {useState} from "react";
-import {useCookies} from "react-cookie";
 import {Button, Card, CardBody, CardTitle, Col, Container, Form, FormGroup, Input, Label, Row} from "reactstrap";
+import {AuthService} from "../api/AuthService";
+import {toast} from "react-toastify";
 
 export function Profile({user}) {
 
     const [newEmail, setNewEmail] = useState("");
-    const [cookies] = useCookies(['XSRF-TOKEN']);
 
     const handleEmailInputChange = (e) => {
         setNewEmail(e.target.value);
@@ -17,42 +17,22 @@ export function Profile({user}) {
         e.preventDefault();
 
         try {
-            const response = await fetch("/api/auth/change-email", {
-                method: "POST",
-                headers: {
-                    'X-XSRF-TOKEN': cookies['XSRF-TOKEN'],
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({newEmail: newEmail}),
-                credentials: 'include'
-            });
+            const response = await AuthService.updateEmail(newEmail);
 
-            const data = await response.json();
+            setNewEmail('');
 
-            if (data.success) {
-                if (data.requireRelogin) {
-                    fetch('/api/auth/logout', {
-                        method: 'POST', credentials: 'include',
-                        headers: {'X-XSRF-TOKEN': cookies['XSRF-TOKEN']}
-                    })
-                        .then(res => res.json())
-                        .then(response => {
-                            window.location.href = `${response.logoutUrl}?id_token_hint=${response.idToken}`
-                                + `&post_logout_redirect_uri=${window.location.origin}`;
-                        });
+            if (response.success && response.requireRelogin) {
+                toast.success("Email changed successfully. Please log in again.");
+                try {
+                    const logoutData = await AuthService.logout();
+                    window.location.href = `${logoutData.logoutUrl}?id_token_hint=${logoutData.idToken}`
+                        + `&post_logout_redirect_uri=${window.location.origin}`;
+                } catch (logoutError) {
+                    console.error("Logout failed:", logoutError);
                 }
             }
-
-            if (response.ok) {
-                alert("Email changed successfully! Please check your inbox for verification email.");
-                setNewEmail('');
-            } else {
-                alert(data.message || "Failed to change email");
-            }
         } catch (error) {
-            console.error("Error:", error);
-            alert("Failed to change email. Please try again.");
+            toast.error("Failed to change email. Please try again.");
         }
     };
 
@@ -66,10 +46,10 @@ export function Profile({user}) {
                                 Profile
                             </CardTitle>
                             <p className="text-center profile-text">
-                                Welcome, {user ? user.name : "Guest"}!
+                                Welcome, {user.name}!
                             </p>
                             <p className="text-center profile-text">
-                                Email: {user ? user.email : "guest@example.com"}
+                                Email: {user.email}
                             </p>
 
                             <Form onSubmit={handleEmailChange}>

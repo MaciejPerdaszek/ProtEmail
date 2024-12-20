@@ -7,57 +7,58 @@ import {SettingsCom} from "./components/Settings.jsx";
 import {Mailbox} from "./components/Mailbox.jsx";
 import React, {useEffect, useState} from "react";
 import {BrowserRouter as Router, Routes, Route} from "react-router-dom";
-import {useCookies} from "react-cookie";
+import {ToastContainer} from "react-toastify";
+import {AuthService} from "./api/AuthService";
+import {UserService} from "./api/UserService.js";
 
 function App() {
 
     const [authenticated, setAuthenticated] = useState(false);
     const [user, setUser] = useState(undefined);
-    const [email, setEmail] = useState(undefined);
-    const [cookies] = useCookies(['XSRF-TOKEN']);
+    const [id, setId] = useState(undefined);
 
     useEffect(() => {
-        fetch('/api/auth/user', {credentials: 'include'})
-            .then(response => {
-                if (!response.ok) {
-                    setAuthenticated(false);
-                    setUser(undefined);
-                } else {
-                    return response.json();
-                }
-            })
-            .then(data => {
+        const fetchUserData = async () => {
+            try {
+                const data = await AuthService.currentUser();
                 if (data) {
+                    console.log(data);
                     setUser(data);
-                    setEmail(data.email);
+                    setId(data.sub);
                     setAuthenticated(true);
                 }
-            })
+            } catch (error) {
+                console.error('Error fetching user data:', error);
+                setAuthenticated(false);
+                setUser(undefined);
+            }
+        };
+
+        fetchUserData();
     }, []);
 
     useEffect(() => {
-        if (email !== undefined) {
-            fetch('/api/users/', {
-                method: 'POST',
-                headers: {
-                    'X-XSRF-TOKEN': cookies['XSRF-TOKEN'],
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({email}),
-                credentials: 'include'
-            })
-                .then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    }
-                })
-        }
-    }, [email]);
+        const fetchUser = async () => {
+            if (!id || !authenticated) return;
+
+            try {
+                await UserService.addUser(id);
+            } catch (error) {
+                if (!error.response || error.response.data.errorCode !== 'USER_ALREADY_EXISTS') {
+                    console.error('Error fetching user data:', error);
+                }
+            }
+        };
+
+        fetchUser();
+    }, [id, authenticated]);
 
     return (
         <Router>
             <NavBar authenticated={authenticated} user={user} setAuthenticated={setAuthenticated}/>
+            <ToastContainer
+                position="top-right"
+            />
             <Routes>
                 <Route path="/" element={<HomePage/>}/>
                 <Route path="/dashboard" element={<DashBoard user={user}/>}/>

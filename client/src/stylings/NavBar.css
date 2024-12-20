@@ -27,6 +27,7 @@
     border: none;
     cursor: pointer;
     font-weight: bold;
+    border-radius: 6px;
 }
 
 .login-button:hover, .logout-button:hover {

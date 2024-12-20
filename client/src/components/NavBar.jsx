@@ -2,11 +2,15 @@ import React from "react";
 import {Navbar, Button, Container, Nav} from 'reactstrap';
 import '../stylings/NavBar.css';
 import {Link} from "react-router-dom";
-import {useCookies} from "react-cookie";
+import {AuthService} from '../api/AuthService.js';
 
-export function NavBar({authenticated, user, setAuthenticated}) {
+const LOGOUT_DATA = {
+    logoutUrl: '',
+    idToken: ''
+}
 
-    const [cookies] = useCookies(['XSRF-TOKEN']);
+export function NavBar({authenticated}) {
+    const [logoutData, setLogoutData] = React.useState(LOGOUT_DATA);
 
     const login = () => {
         let port = (window.location.port ? ':' + window.location.port : '');
@@ -17,16 +21,15 @@ export function NavBar({authenticated, user, setAuthenticated}) {
         window.location.href = `//${window.location.hostname}${port}/api/private`;
     }
 
-    const logout = () => {
-        fetch('/api/auth/logout', {
-            method: 'POST', credentials: 'include',
-            headers: {'X-XSRF-TOKEN': cookies['XSRF-TOKEN']}
-        })
-            .then(res => res.json())
-            .then(response => {
-                window.location.href = `${response.logoutUrl}?id_token_hint=${response.idToken}`
-                    + `&post_logout_redirect_uri=${window.location.origin}`;
-            });
+    const logout = async () => {
+        try {
+            const data = await AuthService.logout();
+
+            window.location.href = `${data.logoutUrl}?id_token_hint=${data.idToken}`
+                + `&post_logout_redirect_uri=${window.location.origin}`;
+        } catch (error) {
+            console.error('Error logging out:', error);
+        }
     }
 
     return (
@@ -37,10 +40,14 @@ export function NavBar({authenticated, user, setAuthenticated}) {
                         window.location.href = '/';
                     }}>ProtEmail</Container>
                     <Nav className="nav-links">
-                        <Link to="/dashboard">Dashboard</Link>
-                        <Link to="/scanlog">Scan logs</Link>
-                        <Link to="/profile">Profile</Link>
-                        <Link to="/settings">Settings</Link>
+                        {authenticated && (
+                            <>
+                                <Link to="/dashboard">Dashboard</Link>
+                                <Link to="/scanlog">Scan logs</Link>
+                                <Link to="/profile">Profile</Link>
+                                <Link to="/settings">Settings</Link>
+                            </>
+                        )}
                     </Nav>
                     {authenticated ? (
                         <Button className="logout-button" onClick={() => logout()}>Logout</Button>

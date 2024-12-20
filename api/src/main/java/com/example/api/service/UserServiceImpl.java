@@ -1,6 +1,7 @@
 package com.example.api.service;
 
 import java.util.List;
+import java.util.Optional;
 import com.example.api.exception.UserAlreadyExistException;
 import com.example.api.exception.UserNotFound;
 import com.example.api.model.User;
@@ -22,21 +23,21 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User getUserById(long theId) {
+    public User getUserById(String theId) {
         return userRepository.findById(theId).orElseThrow(() -> new UserNotFound("Did not find user id - " + theId));
     }
 
     @Override
     public User saveUser(User theUser) {
-        User existingUser = userRepository.findByEmail(theUser.getEmail());
-        if (existingUser != null) {
-            throw new UserAlreadyExistException("User with email " + theUser.getEmail() + " already exists");
+        Optional<User> existingUser = userRepository.findById(theUser.getId());
+        if (existingUser.isPresent()) {
+            throw new UserAlreadyExistException("User with uid" + theUser.getId() + " already exists");
         }
         return userRepository.save(theUser);
     }
 
     @Override
-    public void deleteUser(long theId) {
+    public void deleteUser(String theId) {
         userRepository.deleteById(theId);
     }
 }

@@ -1,10 +1,8 @@
 import React from "react";
-import {useNavigate} from "react-router-dom";
 import '../stylings/HomePage.css';
 import {Container} from "reactstrap";
 
 export function HomePage() {
-    let navigate = useNavigate();
 
     return (
         <Container className="landing-page">
