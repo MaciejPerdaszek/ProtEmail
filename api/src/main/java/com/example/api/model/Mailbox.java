@@ -1,7 +1,9 @@
 package com.example.api.model;
 
 import java.util.List;
+import com.example.api.AESConverter;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -15,6 +17,8 @@ public class Mailbox {
 
     private String email;
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Convert(converter = AESConverter.class)
     private String password;
 
     private String type;

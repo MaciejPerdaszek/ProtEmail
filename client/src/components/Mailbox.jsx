@@ -40,19 +40,14 @@ export function Mailbox() {
     };
 
     const handleGetEmail = async () => {
-        console.log('Getting email:', mailbox);
 
         const imapData = {
             host: mailbox.type,
             username: mailbox.email,
-            password: mailbox.password,
             messageCount: scanSettings.scanDepth
         }
 
-        console.log('IMAP data:', imapData);
-
-        const data = await EmailService.fetchEmails(imapData);
-        console.log('Email data:', data);
+        await EmailService.fetchEmails(imapData);
     }
 
     const handleClose = () => {

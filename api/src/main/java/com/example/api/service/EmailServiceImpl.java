@@ -8,7 +8,9 @@ import java.util.Properties;
 import com.example.api.dto.EmailConfigRequest;
 import com.example.api.exception.EmailsFetchingException;
 import com.example.api.model.Email;
+import com.example.api.model.Mailbox;
 import com.example.api.repository.EmailRepository;
+import com.example.api.repository.MailboxRepository;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -16,8 +18,11 @@ public class EmailServiceImpl implements EmailService {
 
     private final EmailRepository emailRepository;
 
-    private EmailServiceImpl(EmailRepository emailRepository) {
+    private final MailboxRepository mailboxRepository;
+
+    private EmailServiceImpl(EmailRepository emailRepository, MailboxRepository mailboxRepository) {
         this.emailRepository = emailRepository;
+        this.mailboxRepository = mailboxRepository;
     }
 
     @Override
@@ -42,6 +47,9 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public List<Email> getEmailsFromMailbox(EmailConfigRequest config) {
+        Mailbox mailbox = mailboxRepository.findByEmail(config.username())
+                .orElseThrow(() -> new RuntimeException("Mailbox not found"));
+
         Properties props = new Properties();
         props.put("mail.store.protocol", config.protocol());
         props.put("mail.imap.host", config.host());
@@ -54,7 +62,7 @@ public class EmailServiceImpl implements EmailService {
             Session session = Session.getDefaultInstance(props, null);
 
             Store store = session.getStore(config.protocol());
-            store.connect(config.host(), config.username(), config.password());
+            store.connect(config.host(), config.username(), mailbox.getPassword());
 
             Folder inbox = store.getFolder("INBOX");
             inbox.open(Folder.READ_ONLY);

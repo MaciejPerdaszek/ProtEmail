@@ -50,7 +50,6 @@ export function DashBoard({user}) {
 
     const handleInputChange = useCallback((e) => {
         const {name, value} = e.target;
-        console.log(`Field ${name} changed to ${value}`); // Debug
         if (showEditPopup) {
             setEditingMailbox(prev => ({
                 ...prev,
