@@ -1,4 +1,4 @@
-package com.example.api;
+package com.example.api.config;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;

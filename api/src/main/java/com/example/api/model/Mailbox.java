@@ -1,7 +1,7 @@
 package com.example.api.model;
 
 import java.util.List;
-import com.example.api.AESConverter;
+import com.example.api.config.AESConverter;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;

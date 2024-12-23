@@ -1,4 +1,4 @@
-package com.example.api;
+package com.example.api.config;
 
 import java.io.IOException;
 import jakarta.servlet.FilterChain;
