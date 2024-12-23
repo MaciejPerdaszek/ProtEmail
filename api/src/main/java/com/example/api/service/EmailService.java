@@ -15,4 +15,6 @@ public interface EmailService {
     void deleteEmail(long theId);
 
     List<Email> getEmailsFromMailbox(EmailConfigRequest config);
+
+    void stopMonitoring();
 }

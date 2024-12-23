@@ -6,6 +6,7 @@ import com.example.api.model.Email;
 import com.example.api.service.EmailService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.socket.WebSocketSession;
 
 @RestController
 @RequestMapping("/api/emails")

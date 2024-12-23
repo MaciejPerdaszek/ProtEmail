@@ -25,6 +25,12 @@ export function Mailbox() {
         threatsFound: 0
     });
 
+    const imapData = {
+        host: mailbox.type,
+        username: mailbox.email,
+        messageCount: scanSettings.scanDepth
+    };
+
     const [stompClient, setStompClient] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
 
@@ -44,68 +50,65 @@ export function Mailbox() {
                 debug: (str) => console.log('STOMP debug: ' + str),
                 onConnect: () => {
                     console.log("WebSocket connected");
-                    client.subscribe('/topic/emails', (message) => {
-                        const body = JSON.parse(message.body);
-                        console.log("Received message:", body);
-                        // setScanStatus(prev => ({
-                        //     ...prev,
-                        //     isScanning: false,
-                        //     lastScan: body.lastScan || new Date().toLocaleString(),
-                        //     threatsFound: body.threatsFound || 0
-                        // }));
+                    // Subscribe to user-specific topic
+                    client.subscribe(`/topic/${mailbox.email}`, (message) => {
+                        console.log("Received message:", message.body);
+                    });
+
+                    // Send connection request with email config
+                    const emailConfig = {
+                        protocol: "imap",  // Add this
+                        host: mailbox.type,
+                        port: "993",       // Add this
+                        username: mailbox.email,
+                        messageCount: scanSettings.scanDepth
+                    };
+
+                    client.publish({
+                        destination: '/api/connect',
+                        body: JSON.stringify(emailConfig)
                     });
                 },
                 onWebSocketError: (error) => {
                     console.error('WebSocket Error:', error);
-                    setScanStatus(prev => ({ ...prev, isScanning: false }));
+                    setIsConnected(false);
                 },
                 onStompError: (frame) => {
                     console.error('STOMP Error:', frame.headers['message']);
+                    setIsConnected(false);
                 },
             });
 
             client.activate();
             setStompClient(client);
             setIsConnected(true);
-        } else {
-            console.log("WebSocket is already connected.");
-        }
-
-        if (stompClient && stompClient.connected) {
-            stompClient.publish({
-                destination: '/api/emails',
-                body: JSON.stringify({ message: 'Start scan' })
-            });
-
-            console.log("Scan started");
-        } else {
-            console.error("WebSocket is not connected");
         }
     };
 
     const handleCloseConnection = () => {
-        if (stompClient) {
-            stompClient.deactivate(); // Dezaktywacja połączenia WebSocket
-            setIsConnected(false); // zmiana stanu połączenia na false
+        if (stompClient && stompClient.connected) {
+            // Send disconnect message
+            stompClient.publish({
+                destination: '/api/disconnect',
+                body: mailbox.email
+            });
+
+            // Cleanup
+            stompClient.deactivate();
+            setStompClient(null);
+            setIsConnected(false);
             console.log("WebSocket connection closed.");
         }
     };
 
     const handleGetEmail = async () => {
         try {
-            const imapData = {
-                host: mailbox.type,
-                username: mailbox.email,
-                messageCount: scanSettings.scanDepth
-            };
-            await EmailService.fetchEmails(imapData);
+            const data = await EmailService.fetchEmails(imapData);
+            console.log('Emails:', data);
         } catch (error) {
             console.error('Failed to fetch emails:', error);
         }
     };
-
-    // useEffect(() => {
-    // }, []);
 
     return (
         <Container className="mailbox-detail-container">
@@ -223,6 +226,8 @@ export function Mailbox() {
                             Start Scan
                         </Button>
                     )}
+
+
                     {/*<Button*/}
                     {/*    className={`scan-button ${scanStatus.isScanning ? 'scanning' : ''}`}*/}
                     {/*    onClick={handleStartScan}*/}
@@ -230,6 +235,7 @@ export function Mailbox() {
                     {/*>*/}
                     {/*    {scanStatus.isScanning ? 'Scanning...' : 'Start Scan'}*/}
                     {/*</Button>*/}
+                    <Button className="scan-button" onClick={handleGetEmail}> Get Email </Button>
                 </div>
             </div>
         </Container>
