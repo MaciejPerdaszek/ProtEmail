@@ -1,5 +1,6 @@
 package com.example.api.controller;
 
+import javax.mail.MessagingException;
 import java.time.LocalDateTime;
 import com.example.api.dto.EmailConfigRequest;
 import com.example.api.service.EmailService;
@@ -35,14 +36,14 @@ public class WebSocketController {
 
         // Store session information without WebSocketSession
         webSocketService.connect(config.username(), sessionId);
-        emailService.getEmailsFromMailbox(config);
+        emailService.startMonitoring(config);
     }
 
     @MessageMapping("/disconnect")
     public void disconnect(@Payload String email) {
         log.info("WebSocket disconnection request received for email: {}", email);
         webSocketService.disconnect(email);
-        emailService.stopMonitoring();
+        emailService.stopMailboxMonitoring(email);
     }
 
     @MessageMapping("/send-message")

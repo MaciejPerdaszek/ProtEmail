@@ -1,5 +1,6 @@
 package com.example.api.service;
 
+import javax.mail.MessagingException;
 import java.util.List;
 import com.example.api.dto.EmailConfigRequest;
 import com.example.api.model.Email;
@@ -16,5 +17,7 @@ public interface EmailService {
 
     List<Email> getEmailsFromMailbox(EmailConfigRequest config);
 
-    void stopMonitoring();
+    void startMonitoring(EmailConfigRequest config);
+
+    void stopMailboxMonitoring(String email);
 }

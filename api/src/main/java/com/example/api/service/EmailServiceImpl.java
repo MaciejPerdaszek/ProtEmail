@@ -131,11 +131,10 @@ public class EmailServiceImpl implements EmailService {
         props.put("mail.imap.ssl.enable", "true");
         props.put("mail.imap.ssl.trust", "*");
         props.put("mail.imap.auth.plain.disable", "true");
-        props.put("mail.imap.connectiontimeout", "5000");
-        props.put("mail.imap.timeout", "5000");
         props.put("mail.imap.keepalive", "true");
 
         Session session = Session.getDefaultInstance(props, null);
+        session.setDebug(true);
         Store store = session.getStore(config.protocol());
         store.connect(config.host(), config.username(), mailbox.getPassword());
 
@@ -177,16 +176,28 @@ public class EmailServiceImpl implements EmailService {
         return contentBuilder.toString();
     }
 
-    private void startMonitoring(EmailConfigRequest config) {
-        mailboxConfigs.put(config.username(), config);
-        MailboxConnection connection = mailboxConnections.get(config.username());
-        if (connection == null || connection.isMonitoring) {
-            return;
-        }
+    public void startMonitoring(EmailConfigRequest config)  {
+        try {
+            Mailbox mailbox = mailboxRepository.findByEmail(config.username())
+                    .orElseThrow(() -> new RuntimeException("Mailbox not found"));
 
-        connection.isMonitoring = true;
-        connection.shouldReconnect = true;
-        executorService.submit(() -> monitorMailbox(config, connection));
+            MailboxConnection connection = connectToMailbox(config, mailbox);
+
+            mailboxConnections.put(config.username(), connection);
+            mailboxConfigs.put(config.username(), config);
+            connection = mailboxConnections.get(config.username());
+            if (connection == null || connection.isMonitoring) {
+                return;
+            }
+
+            connection.isMonitoring = true;
+            connection.shouldReconnect = true;
+            MailboxConnection finalConnection = connection;
+            executorService.submit(() -> monitorMailbox(config, finalConnection));
+        } catch (Exception e) {
+            log.error("Error starting mailbox monitoring for {}: {}", config.username(), e.getMessage());
+            throw new EmailsFetchingException("Failed to start monitoring", e);
+        }
     }
 
     private void monitorMailbox(EmailConfigRequest config, MailboxConnection connection) {
@@ -205,6 +216,8 @@ public class EmailServiceImpl implements EmailService {
                     // Set a timeout for IDLE command
                     imapFolder.idle(true);
                     connection.updateLastActivityTime();
+
+                    log.info("Waiting for new emails for mailbox: {}", config.username());
 
                     // Perform keepalive check
                     if (connection.isConnectionStale()) {
@@ -237,7 +250,7 @@ public class EmailServiceImpl implements EmailService {
             if (connection.isMonitoring && connection.shouldReconnect) {
 
                 Thread.sleep(RECONNECT_DELAY);
-                reconnectMailbox(config, connection);
+                reconnectMailbox(config);
             }
         } catch (Exception e) {
             log.error("Error handling connection failure: {}", e.getMessage());
@@ -257,7 +270,7 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    private void reconnectMailbox(EmailConfigRequest config, MailboxConnection connection) {
+    private void reconnectMailbox(EmailConfigRequest config) {
         try {
             Mailbox mailbox = mailboxRepository.findByEmail(config.username())
                     .orElseThrow(() -> new RuntimeException("Mailbox not found"));
@@ -274,15 +287,19 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    private void setupMessageListener(MailboxConnection connection, EmailConfigRequest config)
-            throws MessagingException {
-        connection.inbox.addMessageCountListener(new MessageCountAdapter() {
-            @Override
-            public void messagesAdded(MessageCountEvent event) {
-                handleNewMessages(event, config);
-                connection.updateLastActivityTime();
-            }
-        });
+    private void setupMessageListener(MailboxConnection connection, EmailConfigRequest config) {
+        try {
+            connection.inbox.addMessageCountListener(new MessageCountAdapter() {
+                @Override
+                public void messagesAdded(MessageCountEvent event) {
+                    handleNewMessages(event, config);
+                    connection.updateLastActivityTime();
+                }
+            });
+        } catch (Exception e) {
+            log.error("Error setting up message listener: {}", e.getMessage());
+            throw new EmailsFetchingException("Failed to setup message listener", e);
+        }
     }
 
     private void handleNewMessages(MessageCountEvent event, EmailConfigRequest config) {
@@ -300,13 +317,13 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    @Override
     public void stopMonitoring() {
         mailboxConnections.forEach((email, connection) -> {
             stopMailboxMonitoring(email);
         });
     }
 
+    @Override
     public void stopMailboxMonitoring(String email) {
         MailboxConnection connection = mailboxConnections.get(email);
         if (connection != null) {
