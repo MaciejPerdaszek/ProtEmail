@@ -6,7 +6,7 @@ import {ScanLog} from "./components/Scanlog.jsx";
 import {SettingsCom} from "./components/Settings.jsx";
 import {Mailbox} from "./components/Mailbox.jsx";
 import React, {useEffect, useState} from "react";
-import {BrowserRouter as Router, Routes, Route} from "react-router-dom";
+import {BrowserRouter as Router, Routes, Route, Navigate} from "react-router-dom";
 import {ToastContainer} from "react-toastify";
 import {AuthService} from "./api/AuthService";
 import {UserService} from "./api/UserService.js";
@@ -55,17 +55,41 @@ function App() {
 
     return (
         <Router>
-            <NavBar authenticated={authenticated} user={user} setAuthenticated={setAuthenticated}/>
-            <ToastContainer
-                position="top-right"
-            />
+            <NavBar authenticated={authenticated} user={user} setAuthenticated={setAuthenticated} />
+            <ToastContainer position="top-right" />
             <Routes>
-                <Route path="/" element={<HomePage/>}/>
-                <Route path="/dashboard" element={<DashBoard user={user}/>}/>
-                <Route path="/scanlog" element={<ScanLog/>}/>
-                <Route path="/profile" element={<Profile user={user}/>}/>
-                <Route path="/settings" element={<SettingsCom/>}/>
-                <Route path="/mailbox/:email" element={<Mailbox/>}/>
+                <Route path="/" element={<HomePage />} />
+                <Route
+                    path="/dashboard"
+                    element={
+                        authenticated ? <DashBoard user={user} /> : <Navigate to="/" replace />
+                    }
+                />
+                <Route
+                    path="/scanlog"
+                    element={
+                        authenticated ? <ScanLog /> : <Navigate to="/" replace />
+                    }
+                />
+                <Route
+                    path="/profile"
+                    element={
+                        authenticated ? <Profile user={user} /> : <Navigate to="/" replace />
+                    }
+                />
+                <Route
+                    path="/settings"
+                    element={
+                        authenticated ? <SettingsCom /> : <Navigate to="/" replace />
+                    }
+                />
+                <Route
+                    path="/mailbox/:email"
+                    element={
+                        authenticated ? <Mailbox /> : <Navigate to="/" replace />
+                    }
+                />
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </Router>
     );

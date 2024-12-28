@@ -6,6 +6,8 @@ import {MailboxList} from './MailboxList';
 import {MailboxService} from '../api/MailboxService.js';
 import {toast} from 'react-toastify';
 import "../stylings/DashBoard.css";
+import {EmailService} from "../api/EmailService.js";
+import {useScanningStore} from '../store/scannigStore.js';
 
 const INITIAL_FORM_STATE = {email: '', password: '', type: ''};
 
@@ -17,6 +19,8 @@ export function DashBoard({user}) {
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
+    const { scannedMailboxes, setMailboxScanning, resetMailbox } = useScanningStore();
+
     const navigate = useNavigate();
     const popupRef = useRef(null);
 
@@ -27,10 +31,33 @@ export function DashBoard({user}) {
             setMailboxes(data);
         } catch (error) {
             console.error('Error fetching mailboxes:', error);
+            toast('Error fetching mailboxes', {type: 'error'});
         } finally {
             setIsLoading(false);
         }
     }, [user.sub]);
+
+
+    const updateConnectionStates = async () => {
+        try {
+            const states = await EmailService.getMonitoredMailboxes();
+
+            Object.entries(states).forEach(([email, isConnected]) => {
+                if (!isConnected && scannedMailboxes[email]?.isScanning) {
+                    setMailboxScanning(email, false);
+                }
+            });
+
+        } catch (error) {
+            console.error('Error updating connection states:', error);
+        }
+    };
+
+    useEffect(() => {
+        updateConnectionStates();
+        const interval = setInterval(updateConnectionStates, 30000);
+        return () => clearInterval(interval);
+    }, [scannedMailboxes]);
 
     useEffect(() => {
         fetchMailboxes();
@@ -103,6 +130,7 @@ export function DashBoard({user}) {
         setIsLoading(true);
         try {
             await MailboxService.deleteMailbox(mailbox.id);
+            resetMailbox(mailbox.email);
             await fetchMailboxes();
             setActiveDropdown(null);
             toast('Mailbox deleted successfully!', {type: 'success'});
@@ -114,8 +142,32 @@ export function DashBoard({user}) {
     };
 
     const handleMailboxNavigate = useCallback((mailbox) => {
-        navigate(`/mailbox/${mailbox.email}`, { state: mailbox });
-    }, [navigate]);
+        const scanningState = scannedMailboxes[mailbox.email] || {
+            isScanning: false,
+            lastScan: null,
+            threatsFound: 0
+        };
+
+        navigate(`/mailbox/${mailbox.email}`, {
+            state: {
+                mailbox,
+                meta: {
+                    scanningState
+                }
+            }
+        });
+    }, [navigate, scannedMailboxes]);
+
+    const getMailboxesWithScanningState = useCallback(() => {
+        return mailboxes.map(mailbox => ({
+            ...mailbox,
+            scanningState: scannedMailboxes[mailbox.email] || {
+                isScanning: false,
+                lastScan: null,
+                threatsFound: 0
+            }
+        }));
+    }, [mailboxes, scannedMailboxes]);
 
     const toggleDropdown = useCallback((index, e) => {
         e.stopPropagation();
@@ -154,10 +206,10 @@ export function DashBoard({user}) {
                         <h2 className="card-title">Your Mailboxes</h2>
                         <Container className="mailbox-list-container">
                             {isLoading ? (
-                                <p>Loading...</p>
+                                <p className="empty-message">Loading...</p>
                             ) : mailboxes.length > 0 ? (
                                 <MailboxList
-                                    mailboxes={mailboxes}
+                                    mailboxes={getMailboxesWithScanningState()}
                                     onEdit={openEditPopup}
                                     onDelete={handleDeleteMailbox}
                                     onNavigate={handleMailboxNavigate}

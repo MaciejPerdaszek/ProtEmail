@@ -317,6 +317,16 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    public Map<String, Boolean> getMailboxConnectionStates() {
+        Map<String, Boolean> connectionStates = new HashMap<>();
+        mailboxConnections.forEach((email, connection) -> {
+            boolean isConnected = isConnectionValid(connection) && connection.isMonitoring;
+            connectionStates.put(email, isConnected);
+        });
+        log.info("Mailbox connection states: {}", connectionStates);
+        return connectionStates;
+    }
+
     public void stopMonitoring() {
         mailboxConnections.forEach((email, connection) -> {
             stopMailboxMonitoring(email);

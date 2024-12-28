@@ -1,113 +1,92 @@
-import React, { useState, useEffect } from 'react';
-import '../stylings/Mailbox.css';
-import { Container, Form, FormGroup, Label, Input, Button } from 'reactstrap';
-import { Mail, Search, Shield, Clock, AlertTriangle, Undo } from 'lucide-react';
+import React, { useState } from 'react';
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { EmailService } from "../api/EmailService.js";
+import { Container, Button } from 'reactstrap';
+import { Mail, Clock, AlertTriangle, Undo } from 'lucide-react';
 import { Client } from "@stomp/stompjs";
+import { useScanningStore } from '../store/scannigStore.js';
+import '../stylings/Mailbox.css';
 
 export function Mailbox() {
     const { email } = useParams();
     const location = useLocation();
-    const mailbox = location.state;
     const navigate = useNavigate();
+    const { mailbox = {}} = location.state || {};
+    const [error, setError] = useState(null);
 
-    const [scanSettings, setScanSettings] = useState({
-        scanDepth: 5,
-        autoScan: false,
-        scanFrequency: 'daily',
-        scanType: 'full'
-    });
+    const {scannedMailboxes, setMailboxScanning, updateThreatsFound, setStompClient, getStompClient, disconnectMailbox} = useScanningStore();
 
-    const [scanStatus, setScanStatus] = useState({
+    const currentMailboxState = scannedMailboxes[email] || {
         isScanning: false,
         lastScan: null,
         threatsFound: 0
-    });
-
-    const imapData = {
-        host: mailbox.type,
-        username: mailbox.email,
-        messageCount: scanSettings.scanDepth
-    };
-
-    const [stompClient, setStompClient] = useState(null);
-    const [isConnected, setIsConnected] = useState(false);
-
-    const handleScanSettingsChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setScanSettings(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
     };
 
     const handleStartScan = async () => {
-        if (!isConnected) {
+        // Check if there's already an active client
+        const existingClient = getStompClient(email);
+        if (existingClient && existingClient.connected) {
+            console.log("Using existing connection");
+            setMailboxScanning(email, true);
+            return;
+        }
+
+        try {
             const client = new Client({
-                brokerURL: 'http://localhost:8080/gs-guide-websocket',
+                brokerURL: 'ws://localhost:8080/gs-guide-websocket',
                 reconnectDelay: 5000,
                 debug: (str) => console.log('STOMP debug: ' + str),
                 onConnect: () => {
                     console.log("WebSocket connected");
-                    // Subscribe to user-specific topic
-                    client.subscribe(`/topic/${mailbox.email}`, (message) => {
-                        console.log("Received message:", message.body);
+                    client.subscribe(`/topic/${email}`, (message) => {
+                        const data = JSON.parse(message.body);
+                        if (data.threatsFound !== undefined) {
+                            updateThreatsFound(email, data.threatsFound);
+                        }
+                        console.log("Received message:", data);
                     });
 
-                    // Send connection request with email config
                     const emailConfig = {
-                        protocol: "imap",  // Add this
+                        protocol: "imap",
                         host: mailbox.type,
-                        port: "993",       // Add this
-                        username: mailbox.email,
-                        messageCount: scanSettings.scanDepth
+                        port: "993",
+                        username: email,
                     };
 
                     client.publish({
                         destination: '/api/connect',
                         body: JSON.stringify(emailConfig)
                     });
+
+                    setMailboxScanning(email, true);
+                    setError(null);
                 },
                 onWebSocketError: (error) => {
                     console.error('WebSocket Error:', error);
-                    setIsConnected(false);
+                    setError('WebSocket connection error');
+                    disconnectMailbox(email);
                 },
                 onStompError: (frame) => {
                     console.error('STOMP Error:', frame.headers['message']);
-                    setIsConnected(false);
+                    setError('STOMP protocol error');
+                    disconnectMailbox(email);
                 },
+                onDisconnect: () => {
+                    console.log('STOMP client disconnected');
+                    setMailboxScanning(email, false);
+                }
             });
 
             client.activate();
-            setStompClient(client);
-            setIsConnected(true);
-        }
-    };
-
-    const handleCloseConnection = () => {
-        if (stompClient && stompClient.connected) {
-            // Send disconnect message
-            stompClient.publish({
-                destination: '/api/disconnect',
-                body: mailbox.email
-            });
-
-            // Cleanup
-            stompClient.deactivate();
-            setStompClient(null);
-            setIsConnected(false);
-            console.log("WebSocket connection closed.");
-        }
-    };
-
-    const handleGetEmail = async () => {
-        try {
-            const data = await EmailService.fetchEmails(imapData);
-            console.log('Emails:', data);
+            setStompClient(email, client);
         } catch (error) {
-            console.error('Failed to fetch emails:', error);
+            console.error('Error during connection setup:', error);
+            setError('Failed to setup connection');
+            disconnectMailbox(email);
         }
+    };
+
+    const handleNavigateBack = () => {
+        navigate('/dashboard');
     };
 
     return (
@@ -117,77 +96,12 @@ export function Mailbox() {
                     <Mail className="mailbox-icon"/>
                     <h2>{email}</h2>
                 </Container>
-                <Button className="close-button" onClick={() => navigate('/dashboard')}>
+                <Button className="close-button" onClick={handleNavigateBack}>
                     <Undo/>
                 </Button>
             </Container>
 
             <div className="mailbox-detail-content">
-                <div className="mailbox-detail-card">
-                    <h3 className="detail-section-title">
-                        <Search className="section-icon"/>
-                        Scan Settings
-                    </h3>
-                    <Form>
-                        <FormGroup>
-                            <Label className="detail-label">Number of emails to scan</Label>
-                            <Input
-                                type="number"
-                                name="scanDepth"
-                                value={scanSettings.scanDepth}
-                                onChange={handleScanSettingsChange}
-                                className="detail-input"
-                                min="1"
-                                max="1000"
-                            />
-                        </FormGroup>
-
-                        <FormGroup>
-                            <Label className="detail-label">Scan Type</Label>
-                            <Input
-                                type="select"
-                                name="scanType"
-                                value={scanSettings.scanType}
-                                onChange={handleScanSettingsChange}
-                                className="detail-input"
-                            >
-                                <option value="full">Full Scan</option>
-                                <option value="quick">Quick Scan</option>
-                                <option value="custom">Custom Scan</option>
-                            </Input>
-                        </FormGroup>
-
-                        <FormGroup>
-                            <Label className="detail-label">Scan Frequency</Label>
-                            <Input
-                                type="select"
-                                name="scanFrequency"
-                                value={scanSettings.scanFrequency}
-                                onChange={handleScanSettingsChange}
-                                className="detail-input"
-                            >
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
-                            </Input>
-                        </FormGroup>
-
-                        <FormGroup className="checkbox-group">
-                            <Input
-                                type="checkbox"
-                                name="autoScan"
-                                checked={scanSettings.autoScan}
-                                onChange={handleScanSettingsChange}
-                                className="detail-checkbox"
-                            />
-                            <Label className="checkbox-label">
-                                <Shield className="checkbox-icon"/>
-                                Enable Auto-Scan
-                            </Label>
-                        </FormGroup>
-                    </Form>
-                </div>
-
                 <div className="mailbox-detail-card">
                     <h3 className="detail-section-title">
                         <AlertTriangle className="section-icon"/>
@@ -198,7 +112,11 @@ export function Mailbox() {
                             <Clock className="status-icon"/>
                             <div className="status-info">
                                 <span className="status-label">Last Scan:</span>
-                                <span>{scanStatus.lastScan || 'Never'}</span>
+                                <span>
+                                    {currentMailboxState.lastScan
+                                        ? new Date(currentMailboxState.lastScan).toLocaleString()
+                                        : 'Never'}
+                                </span>
                             </div>
                         </div>
 
@@ -206,17 +124,23 @@ export function Mailbox() {
                             <AlertTriangle className="status-icon"/>
                             <div className="status-info">
                                 <span className="status-label">Threats Found:</span>
-                                <span>{scanStatus.threatsFound}</span>
+                                <span>{currentMailboxState.threatsFound}</span>
                             </div>
                         </div>
                     </div>
 
-                    {isConnected ? (
+                    {error && (
+                        <div className="error-message" style={{ color: 'red', marginBottom: '10px' }}>
+                            {error}
+                        </div>
+                    )}
+
+                    {currentMailboxState.isScanning ? (
                         <Button
                             className="scan-button"
-                            onClick={handleCloseConnection}
+                            onClick={() => disconnectMailbox(email)}
                         >
-                            Close Connection
+                            Stop Scan
                         </Button>
                     ) : (
                         <Button
@@ -226,16 +150,6 @@ export function Mailbox() {
                             Start Scan
                         </Button>
                     )}
-
-
-                    {/*<Button*/}
-                    {/*    className={`scan-button ${scanStatus.isScanning ? 'scanning' : ''}`}*/}
-                    {/*    onClick={handleStartScan}*/}
-                    {/*    disabled={scanStatus.isScanning}*/}
-                    {/*>*/}
-                    {/*    {scanStatus.isScanning ? 'Scanning...' : 'Start Scan'}*/}
-                    {/*</Button>*/}
-                    <Button className="scan-button" onClick={handleGetEmail}> Get Email </Button>
                 </div>
             </div>
         </Container>
