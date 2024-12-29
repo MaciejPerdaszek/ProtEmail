@@ -37,7 +37,7 @@ public class WebSocketServiceImpl implements WebSocketService {
     public void sendMessage(String email, String message) {
         if (sessions.containsKey(email)) {
             messagingTemplate.convertAndSendToUser(email, "/topic/" + email, message);
-            log.info("Message sent to {}: {}", email, message);
+            //log.info("Message sent to {}: {}", email, message);
         } else {
             log.warn("No session found for email: {}", email);
         }

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Container, Button } from 'reactstrap';
 import { Mail, Clock, AlertTriangle, Undo } from 'lucide-react';
-import { Client } from "@stomp/stompjs";
 import { useScanningStore } from '../store/scannigStore.js';
 import '../stylings/Mailbox.css';
 
@@ -10,10 +9,20 @@ export function Mailbox() {
     const { email } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
-    const { mailbox = {}} = location.state || {};
+    const { mailbox = {} } = location.state || {};
     const [error, setError] = useState(null);
 
-    const {scannedMailboxes, setMailboxScanning, updateThreatsFound, setStompClient, getStompClient, disconnectMailbox} = useScanningStore();
+    const {
+        scannedMailboxes,
+        initializeWebSocket,
+        disconnectMailbox,
+        synchronizeState
+    } = useScanningStore();
+
+    // Synchronize state on component mount
+    useEffect(() => {
+        synchronizeState();
+    }, []);
 
     const currentMailboxState = scannedMailboxes[email] || {
         isScanning: false,
@@ -22,67 +31,25 @@ export function Mailbox() {
     };
 
     const handleStartScan = async () => {
-        // Check if there's already an active client
-        const existingClient = getStompClient(email);
-        if (existingClient && existingClient.connected) {
-            console.log("Using existing connection");
-            setMailboxScanning(email, true);
-            return;
-        }
-
         try {
-            const client = new Client({
-                brokerURL: 'ws://localhost:8080/gs-guide-websocket',
-                reconnectDelay: 5000,
-                debug: (str) => console.log('STOMP debug: ' + str),
-                onConnect: () => {
-                    console.log("WebSocket connected");
-                    client.subscribe(`/topic/${email}`, (message) => {
-                        const data = JSON.parse(message.body);
-                        if (data.threatsFound !== undefined) {
-                            updateThreatsFound(email, data.threatsFound);
-                        }
-                        console.log("Received message:", data);
-                    });
+            const mailboxConfig = {
+                protocol: "imap",
+                host: mailbox.type,
+                port: "993",
+                username: email,
+            };
 
-                    const emailConfig = {
-                        protocol: "imap",
-                        host: mailbox.type,
-                        port: "993",
-                        username: email,
-                    };
-
-                    client.publish({
-                        destination: '/api/connect',
-                        body: JSON.stringify(emailConfig)
-                    });
-
-                    setMailboxScanning(email, true);
-                    setError(null);
-                },
-                onWebSocketError: (error) => {
-                    console.error('WebSocket Error:', error);
-                    setError('WebSocket connection error');
-                    disconnectMailbox(email);
-                },
-                onStompError: (frame) => {
-                    console.error('STOMP Error:', frame.headers['message']);
-                    setError('STOMP protocol error');
-                    disconnectMailbox(email);
-                },
-                onDisconnect: () => {
-                    console.log('STOMP client disconnected');
-                    setMailboxScanning(email, false);
-                }
-            });
-
-            client.activate();
-            setStompClient(email, client);
+            initializeWebSocket(email, mailboxConfig);
+            setError(null);
         } catch (error) {
             console.error('Error during connection setup:', error);
             setError('Failed to setup connection');
             disconnectMailbox(email);
         }
+    };
+
+    const handleStopScan = () => {
+        disconnectMailbox(email);
     };
 
     const handleNavigateBack = () => {
@@ -138,7 +105,7 @@ export function Mailbox() {
                     {currentMailboxState.isScanning ? (
                         <Button
                             className="scan-button"
-                            onClick={() => disconnectMailbox(email)}
+                            onClick={handleStopScan}
                         >
                             Stop Scan
                         </Button>

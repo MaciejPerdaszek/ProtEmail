@@ -47,8 +47,9 @@ public class EmailController {
         return emailService.getEmailsFromMailbox(config);
     }
 
-    @GetMapping("/monitored-emails")
-    public Map<String, Boolean> getMonitoredEmails() {
-        return emailService.getMailboxConnectionStates();
+    @GetMapping("/connection-states")
+    public ResponseEntity<Map<String, Boolean>> getConnectionStates() {
+        Map<String, Boolean> states = emailService.getMailboxConnectionStates();
+        return ResponseEntity.ok(states);
     }
 }

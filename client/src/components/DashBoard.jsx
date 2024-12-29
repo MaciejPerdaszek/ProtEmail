@@ -19,7 +19,11 @@ export function DashBoard({user}) {
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    const { scannedMailboxes, setMailboxScanning, resetMailbox } = useScanningStore();
+    const {
+        scannedMailboxes,
+        initializeWebSocket,
+        synchronizeState
+    } = useScanningStore();
 
     const navigate = useNavigate();
     const popupRef = useRef(null);
@@ -37,27 +41,29 @@ export function DashBoard({user}) {
         }
     }, [user.sub]);
 
+    useEffect(() => {
+        const initialize = async () => {
+            await synchronizeState();
 
-    const updateConnectionStates = async () => {
-        try {
-            const states = await EmailService.getMonitoredMailboxes();
-
-            Object.entries(states).forEach(([email, isConnected]) => {
-                if (!isConnected && scannedMailboxes[email]?.isScanning) {
-                    setMailboxScanning(email, false);
+            // Przywróć połączenia WebSocket dla aktywnych skrzynek
+            mailboxes.forEach(mailbox => {
+                if (scannedMailboxes[mailbox.email]?.isScanning) {
+                    const config = {
+                        protocol: "imap",
+                        host: mailbox.type,
+                        port: "993",
+                        username: mailbox.email
+                    };
+                    initializeWebSocket(mailbox.email, config);
                 }
             });
+        };
 
-        } catch (error) {
-            console.error('Error updating connection states:', error);
-        }
-    };
+        initialize();
 
-    useEffect(() => {
-        updateConnectionStates();
-        const interval = setInterval(updateConnectionStates, 30000);
+        const interval = setInterval(synchronizeState, 30000);
         return () => clearInterval(interval);
-    }, [scannedMailboxes]);
+    }, [mailboxes]);
 
     useEffect(() => {
         fetchMailboxes();

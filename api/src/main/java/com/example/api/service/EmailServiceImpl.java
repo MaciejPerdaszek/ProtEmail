@@ -134,7 +134,7 @@ public class EmailServiceImpl implements EmailService {
         props.put("mail.imap.keepalive", "true");
 
         Session session = Session.getDefaultInstance(props, null);
-        session.setDebug(true);
+        //session.setDebug(true);
         Store store = session.getStore(config.protocol());
         store.connect(config.host(), config.username(), mailbox.getPassword());
 
@@ -304,7 +304,7 @@ public class EmailServiceImpl implements EmailService {
 
     private void handleNewMessages(MessageCountEvent event, EmailConfigRequest config) {
         Message[] messages = event.getMessages();
-        log.info("New emails received for {}: {}", config.username(), messages.length);
+        //log.info("New emails received for {}: {}", config.username(), messages.length);
 
         for (Message message : messages) {
             try {
