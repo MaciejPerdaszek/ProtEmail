@@ -45,9 +45,15 @@ public class MailboxServiceImpl implements MailboxService {
         Mailbox existingMailbox = mailboxRepository.findById(mailbox.getId())
                 .orElseThrow(() -> new RuntimeException("Did not find mailbox id - " + mailbox.getId()));
 
-        existingMailbox.setEmail(mailbox.getEmail());
-        existingMailbox.setPassword(mailbox.getPassword());
-        existingMailbox.setType(mailbox.getType());
+        if (mailbox.getEmail() != null) {
+            existingMailbox.setEmail(mailbox.getEmail());
+        }
+        if (mailbox.getPassword() != null) {
+            existingMailbox.setPassword(mailbox.getPassword());
+        }
+        if (mailbox.getType() != null) {
+            existingMailbox.setType(mailbox.getType());
+        }
         existingMailbox.setUser(user);
 
         return mailboxRepository.save(existingMailbox);

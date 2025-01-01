@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Client } from '@stomp/stompjs';
+import {toast} from "react-toastify";
 
 const useScanningStore = create(
     persist(
@@ -18,17 +19,35 @@ const useScanningStore = create(
                         onConnect: () => {
                             console.log("WebSocket connected for", email);
 
-                            client.subscribe(`/user/${email}/topic/${email}`, (message) => {
-                                const data = message.body;
+                            client.subscribe(`/user/${email}/topic/response`, (message) => {
+                                const data = JSON.parse(message.body);
                                 console.log("Received message:", data);
+                                toast(data.message, { type: data.error === 'ERROR' ? 'error' : 'info' });
 
-                                if (data.includes('New email received')) {
+                                if (data.error === 'ERROR') {
+                                    toast(data.message, { type: 'error' });
+                                    client.deactivate();
+                                    store.disconnectMailbox(email);
+                                } else if (data.error === 'SUCCESS') {
+                                    toast(data.message, { type: 'success' });
                                     set((state) => ({
                                         scannedMailboxes: {
                                             ...state.scannedMailboxes,
                                             [email]: {
                                                 ...(state.scannedMailboxes[email] || {}),
                                                 isScanning: true,
+                                                lastScan: new Date().toISOString()
+                                            }
+                                        }
+                                    }));
+                                }
+
+                                if (data.message?.includes('New email received')) {
+                                    set((state) => ({
+                                        scannedMailboxes: {
+                                            ...state.scannedMailboxes,
+                                            [email]: {
+                                                ...(state.scannedMailboxes[email] || {}),
                                                 lastScan: new Date().toISOString(),
                                                 threatsFound: (state.scannedMailboxes[email]?.threatsFound || 0) + 1
                                             }
@@ -36,25 +55,11 @@ const useScanningStore = create(
                                     }));
                                 }
                             });
-                            
+
                             client.publish({
                                 destination: '/api/connect',
-                                body: JSON.stringify({
-                                    ...mailboxConfig,
-                                    sessionId: client.connectionId
-                                })
+                                body: JSON.stringify(mailboxConfig)
                             });
-
-                            set((state) => ({
-                                scannedMailboxes: {
-                                    ...state.scannedMailboxes,
-                                    [email]: {
-                                        ...(state.scannedMailboxes[email] || {}),
-                                        isScanning: true,
-                                        lastScan: new Date().toISOString()
-                                    }
-                                }
-                            }));
                         },
                         onDisconnect: () => {
                             console.log('WebSocket disconnected for', email);
@@ -89,6 +94,7 @@ const useScanningStore = create(
             },
 
             disconnectMailbox: (email) => {
+                toast(`Disconnecting mailbox ${email}`, { type: 'warning' });
                 const client = get().stompClients[email];
                 if (client) {
                     if (client.connected) {
@@ -113,6 +119,13 @@ const useScanningStore = create(
                         };
                     });
                 }
+            },
+
+            disconnectAllMailboxes: () => {
+                const store = get();
+                Object.keys(store.stompClients).forEach((email) => {
+                    store.disconnectMailbox(email);
+                });
             },
 
             synchronizeState: async () => {

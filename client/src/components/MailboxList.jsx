@@ -1,6 +1,5 @@
 import {Button, Container} from "reactstrap";
 import {MoreVertical} from "lucide-react";
-import React from "react";
 import { useScanningStore } from '../store/scannigStore.js';
 
 export function MailboxList({mailboxes, onEdit, onDelete, onNavigate, activeDropdown, onToggleDropdown}) {
@@ -18,7 +17,6 @@ export function MailboxList({mailboxes, onEdit, onDelete, onNavigate, activeDrop
         }
         return '⚪ Disconnected';
     };
-
 
     const getStatusClass = (mailbox) => {
         const isScanning = scannedMailboxes[mailbox.email]?.isScanning;

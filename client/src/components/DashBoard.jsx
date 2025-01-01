@@ -1,13 +1,13 @@
-import React, {useState, useEffect, useRef, useCallback} from "react";
+import {useState, useEffect, useRef, useCallback} from "react";
 import {useNavigate} from 'react-router-dom';
-import {Container} from "reactstrap";
+import {Button, Container} from "reactstrap";
 import {MailboxForm} from './MailboxForm';
 import {MailboxList} from './MailboxList';
 import {MailboxService} from '../api/MailboxService.js';
 import {toast} from 'react-toastify';
 import "../stylings/DashBoard.css";
-import {EmailService} from "../api/EmailService.js";
 import {useScanningStore} from '../store/scannigStore.js';
+import {ConfirmationPopup} from './ConfirmationPopup';
 
 const INITIAL_FORM_STATE = {email: '', password: '', type: ''};
 
@@ -18,15 +18,23 @@ export function DashBoard({user}) {
     const [showEditPopup, setShowEditPopup] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isPopupOpen, setIsPopupOpen] = useState(false);
+    const [selectedMailbox, setSelectedMailbox] = useState(null);
 
-    const {
-        scannedMailboxes,
-        initializeWebSocket,
-        synchronizeState
-    } = useScanningStore();
+    const {scannedMailboxes, initializeWebSocket, synchronizeState, disconnectMailbox, disconnectAllMailboxes} = useScanningStore();
 
     const navigate = useNavigate();
     const popupRef = useRef(null);
+
+    const openPopup = (mailbox) => {
+        setSelectedMailbox(mailbox);
+        setIsPopupOpen(true);
+    };
+
+    const closePopup = () => {
+        setIsPopupOpen(false);
+        setSelectedMailbox(null);
+    };
 
     const fetchMailboxes = useCallback(async () => {
         setIsLoading(true);
@@ -115,6 +123,7 @@ export function DashBoard({user}) {
         e.preventDefault();
         setIsLoading(true);
         try {
+            //disconnectMailbox(mailbox.email);
             await MailboxService.updateMailbox(
                 user.sub,
                 editingMailbox.id,
@@ -131,19 +140,21 @@ export function DashBoard({user}) {
         }
     };
 
-    const handleDeleteMailbox = async (mailbox, e) => {
-        e.stopPropagation();
+    const handleDeleteMailbox = async () => {
+        if (!selectedMailbox) return;
+
         setIsLoading(true);
         try {
-            await MailboxService.deleteMailbox(mailbox.id);
-            resetMailbox(mailbox.email);
+            disconnectMailbox(selectedMailbox.email);
+            await MailboxService.deleteMailbox(selectedMailbox.id);
             await fetchMailboxes();
             setActiveDropdown(null);
-            toast('Mailbox deleted successfully!', {type: 'success'});
+            toast('Mailbox deleted successfully!', { type: 'success' });
         } catch (error) {
-            toast('Error deleting mailbox. Please try again.', {type: 'error'});
+            toast('Error deleting mailbox. Please try again.', { type: 'error' });
         } finally {
             setIsLoading(false);
+            closePopup();
         }
     };
 
@@ -217,7 +228,7 @@ export function DashBoard({user}) {
                                 <MailboxList
                                     mailboxes={getMailboxesWithScanningState()}
                                     onEdit={openEditPopup}
-                                    onDelete={handleDeleteMailbox}
+                                    onDelete={openPopup}
                                     onNavigate={handleMailboxNavigate}
                                     activeDropdown={activeDropdown}
                                     onToggleDropdown={toggleDropdown}
@@ -226,6 +237,7 @@ export function DashBoard({user}) {
                                 <p className="empty-message">No mailboxes added yet.</p>
                             )}
                         </Container>
+                        <Button type="submit" className="form-button" onClick={disconnectAllMailboxes}>Stop scanning mailboxes</Button>
                     </Container>
                 </Container>
             </Container>
@@ -244,6 +256,12 @@ export function DashBoard({user}) {
                     </Container>
                 </Container>
             )}
+            <ConfirmationPopup
+                isOpen={isPopupOpen}
+                onClose={closePopup}
+                onConfirm={handleDeleteMailbox}
+                message={`Are you sure you want to delete mailbox ${selectedMailbox?.email}?`}
+            />
         </Container>
     );
 }

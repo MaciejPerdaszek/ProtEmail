@@ -1,11 +1,9 @@
 package com.example.api.service;
 
-import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.web.socket.WebSocketSession;
 
 @Service
 @Slf4j
@@ -18,7 +16,6 @@ public class WebSocketServiceImpl implements WebSocketService {
         this.messagingTemplate = messagingTemplate;
     }
 
-
     @Override
     public void connect(String email, String sessionId) {
         sessions.put(email, sessionId);
@@ -30,6 +27,13 @@ public class WebSocketServiceImpl implements WebSocketService {
     public void disconnect(String email) {
         sessions.remove(email);
         log.info("Removed session for email: {}", email);
+        log.info("Active sessions: {}", sessions);
+    }
+
+    @Override
+    public void disconnectAll() {
+        sessions.clear();
+        log.info("Removed all sessions");
         log.info("Active sessions: {}", sessions);
     }
 

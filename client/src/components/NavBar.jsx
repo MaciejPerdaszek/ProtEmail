@@ -1,16 +1,12 @@
-import React from "react";
 import {Navbar, Button, Container, Nav} from 'reactstrap';
 import '../stylings/NavBar.css';
 import {Link} from "react-router-dom";
 import {AuthService} from '../api/AuthService.js';
-
-const LOGOUT_DATA = {
-    logoutUrl: '',
-    idToken: ''
-}
+import {useScanningStore} from "../store/scannigStore.js";
 
 export function NavBar({authenticated}) {
-    const [logoutData, setLogoutData] = React.useState(LOGOUT_DATA);
+
+    const {disconnectAllMailboxes} = useScanningStore();
 
     const login = () => {
         let port = (window.location.port ? ':' + window.location.port : '');
@@ -23,6 +19,7 @@ export function NavBar({authenticated}) {
 
     const logout = async () => {
         try {
+            disconnectAllMailboxes();
             const data = await AuthService.logout();
 
             window.location.href = `${data.logoutUrl}?id_token_hint=${data.idToken}`

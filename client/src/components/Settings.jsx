@@ -1,7 +1,7 @@
-import React, {useState} from 'react';
 import '../stylings/Settings.css';
 import {Form, FormGroup, Label, Input, Button, Container} from 'reactstrap';
 import {Mail, Globe, Shield, MessageSquareWarning} from 'lucide-react';
+import {useState} from "react";
 
 export function SettingsCom() {
     const [settings, setSettings] = useState({

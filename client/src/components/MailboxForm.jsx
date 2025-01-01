@@ -1,6 +1,5 @@
 import {Button, Form, FormGroup, Input, Label} from "reactstrap";
 import {X} from "lucide-react";
-import React from "react";
 
 export function MailboxForm({formData, onSubmit, onChange, buttonText, setShowEditPopup}) {
 

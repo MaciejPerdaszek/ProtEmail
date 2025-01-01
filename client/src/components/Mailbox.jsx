@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Container, Button } from 'reactstrap';
 import { Mail, Clock, AlertTriangle, Undo } from 'lucide-react';
@@ -12,12 +12,7 @@ export function Mailbox() {
     const { mailbox = {} } = location.state || {};
     const [error, setError] = useState(null);
 
-    const {
-        scannedMailboxes,
-        initializeWebSocket,
-        disconnectMailbox,
-        synchronizeState
-    } = useScanningStore();
+    const {scannedMailboxes, initializeWebSocket, disconnectMailbox, synchronizeState} = useScanningStore();
 
     // Synchronize state on component mount
     useEffect(() => {

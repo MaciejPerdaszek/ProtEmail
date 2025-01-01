@@ -1,4 +1,3 @@
-import React from "react";
 import '../stylings/HomePage.css';
 import {Container} from "reactstrap";
 

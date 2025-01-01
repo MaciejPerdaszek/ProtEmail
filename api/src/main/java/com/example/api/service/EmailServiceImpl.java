@@ -32,6 +32,7 @@ public class EmailServiceImpl implements EmailService {
     private final WebSocketService webSocketService;
     private final ConcurrentHashMap<String, MailboxConnection> mailboxConnections;
     private final ConcurrentHashMap<String, EmailConfigRequest> mailboxConfigs;
+    private final ConcurrentHashMap<String, Boolean> connectionStates;
 
     private static class MailboxConnection {
         private Store store;
@@ -66,6 +67,7 @@ public class EmailServiceImpl implements EmailService {
         this.executorService = Executors.newCachedThreadPool();
         this.mailboxConnections = new ConcurrentHashMap<>();
         this.mailboxConfigs = new ConcurrentHashMap<>();
+        this.connectionStates = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -228,7 +230,6 @@ public class EmailServiceImpl implements EmailService {
                 }
             } catch (Exception e) {
                 log.error("Error in mailbox monitoring for {}: {}", config.username(), e.getMessage());
-                handleConnectionError(config, connection);
             }
         }
     }
@@ -240,20 +241,6 @@ public class EmailServiceImpl implements EmailService {
                     connection.inbox.isOpen();
         } catch (Exception e) {
             return false;
-        }
-    }
-
-    private void handleConnectionError(EmailConfigRequest config, MailboxConnection connection) {
-        try {
-            cleanupConnection(connection);
-
-            if (connection.isMonitoring && connection.shouldReconnect) {
-
-                Thread.sleep(RECONNECT_DELAY);
-                reconnectMailbox(config);
-            }
-        } catch (Exception e) {
-            log.error("Error handling connection failure: {}", e.getMessage());
         }
     }
 
@@ -318,7 +305,6 @@ public class EmailServiceImpl implements EmailService {
     }
 
     public Map<String, Boolean> getMailboxConnectionStates() {
-        Map<String, Boolean> connectionStates = new HashMap<>();
         mailboxConnections.forEach((email, connection) -> {
             boolean isConnected = isConnectionValid(connection) && connection.isMonitoring;
             connectionStates.put(email, isConnected);
@@ -327,9 +313,10 @@ public class EmailServiceImpl implements EmailService {
         return connectionStates;
     }
 
-    public void stopMonitoring() {
+    private void stopAllMailboxMonitoring() {
         mailboxConnections.forEach((email, connection) -> {
             stopMailboxMonitoring(email);
+            webSocketService.disconnectAll();
         });
     }
 
@@ -347,7 +334,7 @@ public class EmailServiceImpl implements EmailService {
 
     @PreDestroy
     public void cleanup() {
-        stopMonitoring();
+        stopAllMailboxMonitoring();
         executorService.shutdown();
     }
 }

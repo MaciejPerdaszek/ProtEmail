@@ -1,13 +1,14 @@
-import React from "react";
 import '../stylings/Profile.css';
 import {useState} from "react";
 import {Button, Card, CardBody, CardTitle, Col, Container, Form, FormGroup, Input, Label, Row} from "reactstrap";
 import {AuthService} from "../api/AuthService";
 import {toast} from "react-toastify";
+import {useScanningStore} from "../store/scannigStore.js";
 
 export function Profile({user}) {
 
     const [newEmail, setNewEmail] = useState("");
+    const {disconnectAllMailboxes} = useScanningStore();
 
     const handleEmailInputChange = (e) => {
         setNewEmail(e.target.value);
@@ -24,7 +25,10 @@ export function Profile({user}) {
             if (response.success && response.requireRelogin) {
                 toast.success("Email changed successfully. Please log in again.");
                 try {
+                    disconnectAllMailboxes();
                     const logoutData = await AuthService.logout();
+
+
                     window.location.href = `${logoutData.logoutUrl}?id_token_hint=${logoutData.idToken}`
                         + `&post_logout_redirect_uri=${window.location.origin}`;
                 } catch (logoutError) {

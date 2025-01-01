@@ -9,5 +9,7 @@ public interface WebSocketService {
 
     void disconnect(String email);
 
+    void disconnectAll();
+
     void sendMessage(String email, String message);
 }

@@ -1,4 +1,3 @@
-import React from 'react';
 import "../stylings/Scanlog.css";
 import {Container, Table} from "reactstrap";
 
