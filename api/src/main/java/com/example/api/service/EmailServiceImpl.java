@@ -24,7 +24,7 @@ import jakarta.annotation.PreDestroy;
 public class EmailServiceImpl implements EmailService {
 
     private static final long KEEPALIVE_INTERVAL = 5 * 60 * 1000;
-    private static final long RECONNECT_DELAY = 10 * 1000; 
+    private static final long RECONNECT_DELAY = 10 * 1000;
 
     private final EmailRepository emailRepository;
     private final MailboxRepository mailboxRepository;
@@ -32,7 +32,6 @@ public class EmailServiceImpl implements EmailService {
     private final WebSocketService webSocketService;
     private final ConcurrentHashMap<String, MailboxConnection> mailboxConnections;
     private final ConcurrentHashMap<String, EmailConfigRequest> mailboxConfigs;
-    private final ConcurrentHashMap<String, Boolean> connectionStates;
 
     private static class MailboxConnection {
         private Store store;
@@ -67,7 +66,6 @@ public class EmailServiceImpl implements EmailService {
         this.executorService = Executors.newCachedThreadPool();
         this.mailboxConnections = new ConcurrentHashMap<>();
         this.mailboxConfigs = new ConcurrentHashMap<>();
-        this.connectionStates = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -230,6 +228,7 @@ public class EmailServiceImpl implements EmailService {
                 }
             } catch (Exception e) {
                 log.error("Error in mailbox monitoring for {}: {}", config.username(), e.getMessage());
+                handleConnectionError(config, connection);
             }
         }
     }
@@ -241,6 +240,20 @@ public class EmailServiceImpl implements EmailService {
                     connection.inbox.isOpen();
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    private void handleConnectionError(EmailConfigRequest config, MailboxConnection connection) {
+        try {
+            cleanupConnection(connection);
+
+            if (connection.isMonitoring && connection.shouldReconnect) {
+
+                Thread.sleep(RECONNECT_DELAY);
+                reconnectMailbox(config);
+            }
+        } catch (Exception e) {
+            log.error("Error handling connection failure: {}", e.getMessage());
         }
     }
 
@@ -266,7 +279,7 @@ public class EmailServiceImpl implements EmailService {
             mailboxConnections.put(config.username(), newConnection);
             newConnection.isMonitoring = true;
             newConnection.shouldReconnect = true;
-            
+
             log.info("Reconnected to mailbox: {}", config.username());
         } catch (Exception e) {
             log.error("Failed to reconnect: {}", e.getMessage());
@@ -305,6 +318,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     public Map<String, Boolean> getMailboxConnectionStates() {
+        Map<String, Boolean> connectionStates = new HashMap<>();
         mailboxConnections.forEach((email, connection) -> {
             boolean isConnected = isConnectionValid(connection) && connection.isMonitoring;
             connectionStates.put(email, isConnected);
@@ -313,10 +327,9 @@ public class EmailServiceImpl implements EmailService {
         return connectionStates;
     }
 
-    private void stopAllMailboxMonitoring() {
+    public void stopMonitoring() {
         mailboxConnections.forEach((email, connection) -> {
             stopMailboxMonitoring(email);
-            webSocketService.disconnectAll();
         });
     }
 
@@ -334,7 +347,7 @@ public class EmailServiceImpl implements EmailService {
 
     @PreDestroy
     public void cleanup() {
-        stopAllMailboxMonitoring();
+        stopMonitoring();
         executorService.shutdown();
     }
 }
