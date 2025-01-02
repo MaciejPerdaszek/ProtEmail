@@ -15,6 +15,11 @@ public class ScanLogServiceImpl implements ScanLogService {
     }
 
     @Override
+    public List<ScanLog> getScanLogs() {
+        return scanLogRepository.findAll();
+    }
+
+    @Override
     public List<ScanLog> getScanLogsForMailbox(long mailboxId) {
         return scanLogRepository.findByMailboxId(mailboxId);
     }

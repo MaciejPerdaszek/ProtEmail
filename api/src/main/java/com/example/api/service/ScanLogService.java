@@ -5,6 +5,8 @@ import com.example.api.model.ScanLog;
 
 public interface ScanLogService {
 
+    List<ScanLog> getScanLogs();
+
     List<ScanLog> getScanLogsForMailbox(long mailboxId);
 
     ScanLog getScanLogById(long theId);

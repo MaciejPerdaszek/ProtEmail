@@ -68,7 +68,7 @@ function App() {
                 <Route
                     path="/scanlog"
                     element={
-                        authenticated ? <ScanLog /> : <Navigate to="/" replace />
+                        authenticated ? <ScanLog user={user}/> : <Navigate to="/" replace />
                     }
                 />
                 <Route

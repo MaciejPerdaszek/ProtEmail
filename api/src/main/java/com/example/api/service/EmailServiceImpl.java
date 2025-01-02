@@ -12,7 +12,7 @@ import com.example.api.dto.EmailConfigRequest;
 import com.example.api.exception.EmailsFetchingException;
 import com.example.api.model.Email;
 import com.example.api.model.Mailbox;
-import com.example.api.repository.EmailRepository;
+import com.example.api.model.ScanLog;
 import com.example.api.repository.MailboxRepository;
 import com.sun.mail.imap.IMAPFolder;
 import lombok.extern.slf4j.Slf4j;
@@ -26,8 +26,8 @@ public class EmailServiceImpl implements EmailService {
     private static final long KEEPALIVE_INTERVAL = 5 * 60 * 1000;
     private static final long RECONNECT_DELAY = 10 * 1000;
 
-    private final EmailRepository emailRepository;
     private final MailboxRepository mailboxRepository;
+    private final ScanLogService scanLogService;
     private final ExecutorService executorService;
     private final WebSocketService webSocketService;
     private final ConcurrentHashMap<String, MailboxConnection> mailboxConnections;
@@ -57,69 +57,14 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    public EmailServiceImpl(EmailRepository emailRepository,
-                            MailboxRepository mailboxRepository,
+    public EmailServiceImpl(MailboxRepository mailboxRepository, ScanLogService scanLogService,
                             WebSocketService webSocketService) {
-        this.emailRepository = emailRepository;
         this.mailboxRepository = mailboxRepository;
+        this.scanLogService = scanLogService;
         this.webSocketService = webSocketService;
         this.executorService = Executors.newCachedThreadPool();
         this.mailboxConnections = new ConcurrentHashMap<>();
         this.mailboxConfigs = new ConcurrentHashMap<>();
-    }
-
-    @Override
-    public List<Email> getEmailsForMailbox(long mailboxId) {
-        return emailRepository.findByMailboxId(mailboxId);
-    }
-
-    @Override
-    public Email getEmailById(long theId) {
-        return emailRepository.findById(theId)
-                .orElseThrow(() -> new RuntimeException("Did not find email id - " + theId));
-    }
-
-    @Override
-    public Email saveEmail(Email theEmail) {
-        return emailRepository.save(theEmail);
-    }
-
-    @Override
-    public void deleteEmail(long theId) {
-        emailRepository.deleteById(theId);
-    }
-
-    @Override
-    public List<Email> getEmailsFromMailbox(EmailConfigRequest config) {
-        try {
-            List<Email> emails = fetchEmails(config);
-            startMonitoring(config);
-            return emails;
-        } catch (Exception e) {
-            log.error("Error fetching emails from mailbox: {}", config.username(), e);
-            throw new EmailsFetchingException("Failed to fetch emails", e);
-        }
-    }
-
-    private List<Email> fetchEmails(EmailConfigRequest config) {
-        try {
-            Mailbox mailbox = mailboxRepository.findByEmail(config.username())
-                    .orElseThrow(() -> new RuntimeException("Mailbox not found"));
-
-            MailboxConnection connection = connectToMailbox(config, mailbox);
-            mailboxConnections.put(config.username(), connection);
-
-            Message[] messages = connection.inbox.getMessages();
-            log.info("Fetched {} emails from mailbox: {}", messages.length, mailbox.getEmail());
-
-            int startIndex = Math.max(messages.length - config.messageCount(), 0);
-            Message[] messagesCount = new Message[Math.min(messages.length - startIndex, config.messageCount())];
-            System.arraycopy(messages, startIndex, messagesCount, 0, messagesCount.length);
-
-            return convertMessagesToEmails(messagesCount, mailbox);
-        } catch (Exception e) {
-            throw new EmailsFetchingException("Error fetching emails", e);
-        }
     }
 
     private MailboxConnection connectToMailbox(EmailConfigRequest config, Mailbox mailbox)
@@ -142,19 +87,6 @@ public class EmailServiceImpl implements EmailService {
         inbox.open(Folder.READ_WRITE);
 
         return new MailboxConnection(store, inbox);
-    }
-
-    private List<Email> convertMessagesToEmails(Message[] messages, Mailbox mailbox)
-            throws MessagingException, IOException {
-        List<Email> emails = new ArrayList<>();
-        for (Message message : messages) {
-            Email email = new Email();
-            email.setSubject(message.getSubject());
-            email.setContent(getMessageContent(message));
-            email.setMailbox(mailbox);
-            emails.add(email);
-        }
-        return emails;
     }
 
     private String getMessageContent(Message message) throws MessagingException, IOException {
@@ -204,7 +136,7 @@ public class EmailServiceImpl implements EmailService {
         while (connection.isMonitoring && connection.shouldReconnect) {
             try {
                 log.info("Monitoring mailbox: {}", config.username());
-                setupMessageListener(connection, config);
+                setupMessageListener(connection, config.username());
 
                 while (connection.isMonitoring) {
                     if (!isConnectionValid(connection)) {
@@ -287,12 +219,12 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    private void setupMessageListener(MailboxConnection connection, EmailConfigRequest config) {
+    private void setupMessageListener(MailboxConnection connection, String email) {
         try {
             connection.inbox.addMessageCountListener(new MessageCountAdapter() {
                 @Override
                 public void messagesAdded(MessageCountEvent event) {
-                    handleNewMessages(event, config);
+                    handleNewMessages(event, email);
                     connection.updateLastActivityTime();
                 }
             });
@@ -302,21 +234,31 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    private void handleNewMessages(MessageCountEvent event, EmailConfigRequest config) {
+    private void handleNewMessages(MessageCountEvent event, String email) {
         Message[] messages = event.getMessages();
-        //log.info("New emails received for {}: {}", config.username(), messages.length);
 
         for (Message message : messages) {
             try {
-                String subject = message.getSubject();
-                log.info("New email received for {}: {}", config.username(), subject);
-                webSocketService.sendMessage(config.username(), "New email received: " + subject);
+                ScanLog scanLog = new ScanLog();
+                scanLog.setSender(message.getFrom()[0].toString());
+                scanLog.setSubject(message.getSubject());
+                scanLog.setContent(getMessageContent(message));
+                scanLog.setScanDate(new Date());
+                scanLog.setScanStatus("Pending");
+                scanLog.setComment("Pending");
+                scanLog.setMailbox(mailboxRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Mailbox not found")));
+                scanLogService.saveScanLog(scanLog);
+                log.info("New email received: sender {}  subject {}  content {}", scanLog.getSender(), scanLog.getSubject() , scanLog.getContent());
+                //webSocketService.sendMessage(config.username(), "New email received: " + subject);
             } catch (MessagingException e) {
                 log.error("Error processing new message: {}", e.getMessage());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
         }
     }
 
+    @Override
     public Map<String, Boolean> getMailboxConnectionStates() {
         Map<String, Boolean> connectionStates = new HashMap<>();
         mailboxConnections.forEach((email, connection) -> {

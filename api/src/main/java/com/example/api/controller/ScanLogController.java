@@ -3,10 +3,12 @@ package com.example.api.controller;
 import java.util.List;
 import com.example.api.model.ScanLog;
 import com.example.api.service.ScanLogService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@Slf4j
 @RequestMapping("/api/scan-logs")
 public class ScanLogController {
 
@@ -14,6 +16,15 @@ public class ScanLogController {
 
     public ScanLogController(ScanLogService scanLogService) {
         this.scanLogService = scanLogService;
+    }
+
+    @GetMapping()
+    public List<ScanLog> getScanLogs(@RequestParam(required = false) Long mailboxId) {
+        log.info("Received request with mailboxId: {}", mailboxId);
+        if (mailboxId != null) {
+            return scanLogService.getScanLogsForMailbox(mailboxId);
+        }
+        return scanLogService.getScanLogs();
     }
 
     @GetMapping("/mailbox/{mailboxId}")

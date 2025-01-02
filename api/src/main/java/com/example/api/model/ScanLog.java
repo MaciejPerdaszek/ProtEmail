@@ -1,23 +1,29 @@
 package com.example.api.model;
 
-import java.time.LocalDateTime;
+import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import jakarta.persistence.*;
 import lombok.Data;
 
 @Data
 @Entity
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 @Table(name = "scan_logs")
 public class ScanLog {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    private LocalDateTime scanDate;
-    private int totalEmailsScanned;
-    private int phishingEmailsDetected;
+    private String sender;
+    private String subject;
+    private String content;
+    private Date scanDate;
+    private String scanStatus;
+    private String comment;
 
     @ManyToOne
     @JoinColumn(name = "mailbox_id")
+    @JsonBackReference
     private Mailbox mailbox;
-
 }

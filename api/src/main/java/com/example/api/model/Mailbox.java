@@ -3,6 +3,7 @@ package com.example.api.model;
 import java.util.List;
 import com.example.api.config.AESConverter;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -14,7 +15,6 @@ public class Mailbox {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String email;
 
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
@@ -29,9 +29,6 @@ public class Mailbox {
     private User user;
 
     @OneToMany(mappedBy = "mailbox", cascade = CascadeType.ALL)
-    private List<Email> emails;
-
-    @OneToMany(mappedBy = "mailbox", cascade = CascadeType.ALL)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private List<ScanLog> scanLogs;
-
 }
