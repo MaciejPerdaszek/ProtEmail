@@ -6,9 +6,10 @@
 
 .mailbox-detail-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     margin-bottom: 2rem;
+    position: relative;
 }
 
 .mailbox-detail-title {
@@ -16,6 +17,7 @@
     align-items: center;
     gap: 1rem;
     color: #ffffff;
+    margin-right: 11rem;
 }
 
 .mailbox-icon {
@@ -40,8 +42,10 @@
 
 .mailbox-detail-content {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 2rem;
+    max-width: 600px;
+    margin: 0 auto;
 }
 
 .mailbox-detail-card {
@@ -66,12 +70,6 @@
     color: #20B2AA;
 }
 
-.detail-label {
-    color: #D1D5DB;
-    margin-bottom: 0.5rem;
-    display: block;
-}
-
 .detail-input {
     width: 100%;
     background-color: #2A2A2A;
@@ -87,36 +85,6 @@
     outline: none;
     box-shadow: 0 0 0 2px #20B2AA;
     border-color: #20B2AA;
-}
-
-.checkbox-group {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-top: 1rem;
-}
-
-.detail-checkbox {
-    width: 20px;
-    height: 20px;
-    background-color: #2A2A2A;
-    border: 1px solid #3A3A3A;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #D1D5DB;
-    margin: 0;
-}
-
-.checkbox-icon {
-    width: 16px;
-    height: 16px;
-    color: #20B2AA;
 }
 
 .status-container {

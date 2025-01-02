@@ -1,56 +1,80 @@
+import React, { useState, useEffect } from 'react';
+import {Button, Container, FormGroup, Label, Table} from 'reactstrap';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ScanLogService } from "../api/ScanLogService.js";
+import { MailboxService } from "../api/MailboxService.js";
 import "../stylings/Scanlog.css";
-import {Container, FormGroup, Label, Table} from "reactstrap";
-import {ScanLogService} from "../api/ScanLogService.js";
-import {useEffect, useState} from "react";
-import {MailboxService} from "../api/MailboxService.js";
-import {toast} from "react-toastify";
 
-export function ScanLog({user}) {
+export function ScanLog({ user }) {
     const [logs, setLogs] = useState([]);
     const [mailboxes, setMailboxes] = useState([]);
     const [selectedMailbox, setSelectedMailbox] = useState('all');
+    const [pageSize, setPageSize] = useState(5);
+    const [pagination, setPagination] = useState({
+        currentPage: 0,
+        totalPages: 0,
+        totalElements: 0
+    });
 
-    const fetchLogs = async (mailboxId = null) => {
+    const fetchLogs = async (mailboxId = null, page = 0, size = pageSize) => {
         try {
-            const data = await ScanLogService.fetchScanLogs(mailboxId);
-            console.log(data);
-            setLogs(data);
-            return data;
+            const response = await ScanLogService.fetchScanLogs(mailboxId, page, size);
+            setLogs(response.data);
+            setPagination({
+                currentPage: response.currentPage,
+                totalPages: response.totalPages,
+                totalElements: response.total
+            });
         } catch (error) {
             console.error('Error fetching scan logs:', error);
-            toast.error('Failed to fetch scan logs');
-            return [];
         }
     };
 
     const fetchMailboxes = async () => {
         try {
             const data = await MailboxService.fetchMailboxes(user.sub);
-            console.log(data);
             setMailboxes(data);
-            return data;
         } catch (error) {
             console.error('Error fetching mailboxes:', error);
-            toast.error('Failed to fetch mailboxes');
-            return [];
         }
+    };
+
+    const handleMailboxChange = (e) => {
+        const value = e.target.value;
+        setSelectedMailbox(value);
+        setPagination(prev => ({ ...prev, currentPage: 0 }));
+        if (value === 'all') {
+            fetchLogs(null, 0);
+        } else {
+            fetchLogs(value, 0);
+        }
+    };
+
+    const handlePreviousPage = () => {
+        const newPage = pagination.currentPage - 1;
+        if (newPage >= 0) {
+            fetchLogs(selectedMailbox === 'all' ? null : selectedMailbox, newPage);
+        }
+    };
+
+    const handleNextPage = () => {
+        const newPage = pagination.currentPage + 1;
+        if (newPage < pagination.totalPages) {
+            fetchLogs(selectedMailbox === 'all' ? null : selectedMailbox, newPage);
+        }
+    };
+
+    const handlePageSizeChange = (e) => {
+        const newSize = parseInt(e.target.value);
+        setPageSize(newSize);
+        setPagination(prev => ({ ...prev, currentPage: 0 }));
+        fetchLogs(selectedMailbox === 'all' ? null : selectedMailbox, 0, newSize);
     };
 
     useEffect(() => {
         fetchMailboxes();
         fetchLogs();
     }, []);
-
-    const handleMailboxChange = (e) => {
-        const value = e.target.value;
-        setSelectedMailbox(value);
-        if (value === 'all') {
-            fetchLogs();
-        } else {
-            console.log('Selected mailbox:', value);
-            fetchLogs(value);
-        }
-    };
 
     return (
         <Container className="scanlog-container">
@@ -61,24 +85,42 @@ export function ScanLog({user}) {
                 </Container>
 
                 <Container className="table-card">
-                    <Container className="card-header card-header-flex">
-                        <h2 className="card-title">Scanning History</h2>
-                        <FormGroup className="form-group">
-                            <Label className="form-label">Choose mailbox scan logs</Label>
-                            <select
-                                className="form-input"
-                                value={selectedMailbox}
-                                onChange={handleMailboxChange}
-                            >
-                                <option value="all">All Mailboxes</option>
-                                {mailboxes.map((mailbox) => (
-                                    <option key={mailbox.id} value={mailbox.id}>
-                                        {mailbox.email}
-                                    </option>
-                                ))}
-                            </select>
-                        </FormGroup>
+                    <Container className="card-header">
+                        <div className="header-content">
+                            <h2 className="card-title">Scanning History</h2>
+                            <div className="header-controls">
+                                <FormGroup className="form-group">
+                                    <Label className="form-label">Items per page</Label>
+                                    <select
+                                        value={pageSize}
+                                        onChange={handlePageSizeChange}
+                                        className="form-input"
+                                    >
+                                        <option value="5">5</option>
+                                        <option value="10">10</option>
+                                        <option value="20">20</option>
+                                    </select>
+                                </FormGroup>
+                                <FormGroup className="form-group">
+                                    <Label className="form-label">Choose mailbox scan logs</Label>
+                                    <select
+                                        className="form-input"
+                                        value={selectedMailbox}
+                                        onChange={handleMailboxChange}
+                                    >
+                                        <option value="all">All Mailboxes</option>
+                                        {mailboxes.map((mailbox) => (
+                                            <option key={mailbox.id} value={mailbox.id}>
+                                                {mailbox.email}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </FormGroup>
+                            </div>
+                        </div>
                     </Container>
+
+
 
                     <Container className="table-container">
                         <Table className="scanlog-table">
@@ -109,6 +151,28 @@ export function ScanLog({user}) {
                             ))}
                             </tbody>
                         </Table>
+
+                        <Container className="pagination-container">
+                            <Button
+                                onClick={handlePreviousPage}
+                                disabled={pagination.currentPage === 0}
+                                className="pagination-button pagination-button-prev"
+                            >
+                                <ChevronLeft/>
+                                Previous
+                            </Button>
+                            <span className="pagination-info">
+                                Page {pagination.currentPage + 1} of {pagination.totalPages}
+                            </span>
+                            <Button
+                                onClick={handleNextPage}
+                                disabled={pagination.currentPage >= pagination.totalPages - 1}
+                                className="pagination-button pagination-button-next"
+                            >
+                                Next
+                                <ChevronRight/>
+                            </Button>
+                        </Container>
                     </Container>
                 </Container>
             </Container>

@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @RequestMapping("/api/scan-logs")
 public class ScanLogController {
-
     private final ScanLogService scanLogService;
 
     public ScanLogController(ScanLogService scanLogService) {
@@ -19,18 +18,22 @@ public class ScanLogController {
     }
 
     @GetMapping()
-    public List<ScanLog> getScanLogs(@RequestParam(required = false) Long mailboxId) {
-        log.info("Received request with mailboxId: {}", mailboxId);
+    public List<ScanLog> getScanLogs(
+            @RequestParam(required = false) Long mailboxId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        log.info("Received request with mailboxId: {}, page: {}, size: {}", mailboxId, page, size);
+
         if (mailboxId != null) {
-            return scanLogService.getScanLogsForMailbox(mailboxId);
+            return scanLogService.getScanLogsForMailbox(mailboxId, page, size);
         }
-        return scanLogService.getScanLogs();
+        return scanLogService.getScanLogs(page, size);
     }
 
-    @GetMapping("/mailbox/{mailboxId}")
-    public ResponseEntity<List<ScanLog>> getScanLogsForMailbox(@PathVariable long mailboxId) {
-        List<ScanLog> scanLogs = scanLogService.getScanLogsForMailbox(mailboxId);
-        return ResponseEntity.ok(scanLogs);
+    @GetMapping("/count")
+    public ResponseEntity<Long> getCount(@RequestParam(required = false) Long mailboxId) {
+        return ResponseEntity.ok(scanLogService.getCount(mailboxId));
     }
 
     @GetMapping("/{scanLogId}")

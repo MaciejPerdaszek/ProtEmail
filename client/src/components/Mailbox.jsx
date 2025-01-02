@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Container, Button } from 'reactstrap';
 import { Mail, Clock, AlertTriangle, Undo } from 'lucide-react';
@@ -10,7 +10,6 @@ export function Mailbox() {
     const location = useLocation();
     const navigate = useNavigate();
     const { mailbox = {} } = location.state || {};
-    const [error, setError] = useState(null);
 
     const {scannedMailboxes, initializeWebSocket, disconnectMailbox, synchronizeState} = useScanningStore();
 
@@ -35,10 +34,8 @@ export function Mailbox() {
             };
 
             initializeWebSocket(email, mailboxConfig);
-            setError(null);
         } catch (error) {
             console.error('Error during connection setup:', error);
-            setError('Failed to setup connection');
             disconnectMailbox(email);
         }
     };
@@ -63,39 +60,33 @@ export function Mailbox() {
                 </Button>
             </Container>
 
-            <div className="mailbox-detail-content">
-                <div className="mailbox-detail-card">
+            <Container className="mailbox-detail-content">
+                <Container className="mailbox-detail-card">
                     <h3 className="detail-section-title">
                         <AlertTriangle className="section-icon"/>
                         Scan Status
                     </h3>
-                    <div className="status-container">
-                        <div className="status-item">
+                    <Container className="status-container">
+                        <Container className="status-item">
                             <Clock className="status-icon"/>
-                            <div className="status-info">
+                            <Container className="status-info">
                                 <span className="status-label">Last Scan:</span>
                                 <span>
                                     {currentMailboxState.lastScan
                                         ? new Date(currentMailboxState.lastScan).toLocaleString()
                                         : 'Never'}
                                 </span>
-                            </div>
-                        </div>
+                            </Container>
+                        </Container>
 
-                        <div className="status-item">
+                        <Container className="status-item">
                             <AlertTriangle className="status-icon"/>
-                            <div className="status-info">
+                            <Container className="status-info">
                                 <span className="status-label">Threats Found:</span>
                                 <span>{currentMailboxState.threatsFound}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {error && (
-                        <div className="error-message" style={{ color: 'red', marginBottom: '10px' }}>
-                            {error}
-                        </div>
-                    )}
+                            </Container>
+                        </Container>
+                    </Container>
 
                     {currentMailboxState.isScanning ? (
                         <Button
@@ -112,8 +103,8 @@ export function Mailbox() {
                             Start Scan
                         </Button>
                     )}
-                </div>
-            </div>
+                </Container>
+            </Container>
         </Container>
     );
 }
