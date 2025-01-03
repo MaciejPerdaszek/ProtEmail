@@ -3,16 +3,13 @@ package com.example.api.service;
 import javax.mail.*;
 import javax.mail.event.MessageCountAdapter;
 import javax.mail.event.MessageCountEvent;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import com.example.api.dto.EmailConfigRequest;
 import com.example.api.exception.EmailsFetchingException;
-import com.example.api.model.Email;
 import com.example.api.model.Mailbox;
-import com.example.api.model.ScanLog;
 import com.example.api.repository.MailboxRepository;
 import com.sun.mail.imap.IMAPFolder;
 import lombok.extern.slf4j.Slf4j;
@@ -21,13 +18,13 @@ import jakarta.annotation.PreDestroy;
 
 @Slf4j
 @Service
-public class EmailServiceImpl implements EmailService {
+public class MailboxConnectionServiceImpl implements MailboxConnectionService {
 
     private static final long KEEPALIVE_INTERVAL = 5 * 60 * 1000;
     private static final long RECONNECT_DELAY = 10 * 1000;
 
     private final MailboxRepository mailboxRepository;
-    private final ScanLogService scanLogService;
+    private final MessageExtractorService messageExtractorService;
     private final ExecutorService executorService;
     private final WebSocketService webSocketService;
     private final ConcurrentHashMap<String, MailboxConnection> mailboxConnections;
@@ -57,10 +54,10 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    public EmailServiceImpl(MailboxRepository mailboxRepository, ScanLogService scanLogService,
-                            WebSocketService webSocketService) {
+    public MailboxConnectionServiceImpl(MailboxRepository mailboxRepository, MessageExtractorService messageExtractorService,
+                                        WebSocketService webSocketService) {
         this.mailboxRepository = mailboxRepository;
-        this.scanLogService = scanLogService;
+        this.messageExtractorService = messageExtractorService;
         this.webSocketService = webSocketService;
         this.executorService = Executors.newCachedThreadPool();
         this.mailboxConnections = new ConcurrentHashMap<>();
@@ -89,25 +86,7 @@ public class EmailServiceImpl implements EmailService {
         return new MailboxConnection(store, inbox);
     }
 
-    private String getMessageContent(Message message) throws MessagingException, IOException {
-        Object content = message.getContent();
-        if (content instanceof Multipart) {
-            return handleMultipart((Multipart) content);
-        }
-        return content.toString();
-    }
-
-    private String handleMultipart(Multipart multipart) throws MessagingException, IOException {
-        StringBuilder contentBuilder = new StringBuilder();
-        for (int i = 0; i < multipart.getCount(); i++) {
-            BodyPart bodyPart = multipart.getBodyPart(i);
-            if (bodyPart.getContentType().toLowerCase().startsWith("text/plain")) {
-                contentBuilder.append(bodyPart.getContent().toString());
-            }
-        }
-        return contentBuilder.toString();
-    }
-
+    @Override
     public void startMonitoring(EmailConfigRequest config)  {
         try {
             Mailbox mailbox = mailboxRepository.findByEmail(config.username())
@@ -238,23 +217,8 @@ public class EmailServiceImpl implements EmailService {
         Message[] messages = event.getMessages();
 
         for (Message message : messages) {
-            try {
-                ScanLog scanLog = new ScanLog();
-                scanLog.setSender(message.getFrom()[0].toString());
-                scanLog.setSubject(message.getSubject());
-                scanLog.setContent(getMessageContent(message));
-                scanLog.setScanDate(new Date());
-                scanLog.setScanStatus("Pending");
-                scanLog.setComment("Pending");
-                scanLog.setMailbox(mailboxRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Mailbox not found")));
-                scanLogService.saveScanLog(scanLog);
-                log.info("New email received: sender {}  subject {}  content {}", scanLog.getSender(), scanLog.getSubject() , scanLog.getContent());
-                //webSocketService.sendMessage(config.username(), "New email received: " + subject);
-            } catch (MessagingException e) {
-                log.error("Error processing new message: {}", e.getMessage());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            messageExtractorService.performPhishingScan(message, email);
+            //webSocketService.sendMessage(config.username(), "New email received: " + subject);
         }
     }
 
@@ -269,10 +233,10 @@ public class EmailServiceImpl implements EmailService {
         return connectionStates;
     }
 
-    public void stopMonitoring() {
-        mailboxConnections.forEach((email, connection) -> {
-            stopMailboxMonitoring(email);
-        });
+    @Override
+    public void stopAllMailboxMonitoring() {
+        mailboxConnections.forEach((email, _) -> stopMailboxMonitoring(email));
+        webSocketService.disconnectAll();
     }
 
     @Override
@@ -289,7 +253,7 @@ public class EmailServiceImpl implements EmailService {
 
     @PreDestroy
     public void cleanup() {
-        stopMonitoring();
+        stopAllMailboxMonitoring();
         executorService.shutdown();
     }
 }

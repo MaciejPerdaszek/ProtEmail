@@ -140,7 +140,7 @@ export function ScanLog({ user }) {
                                     <td>{log.id}</td>
                                     <td>{log.sender}</td>
                                     <td>{log.subject}</td>
-                                    <td>{log.scanDate}</td>
+                                    <td>{new Date(log.scanDate).toLocaleString('en-EN', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: 'long', day: 'numeric' })}</td>
                                     <td>
                                         <span className={`status-badge status-${log.scanStatus.toLowerCase()}`}>
                                             {log.scanStatus}

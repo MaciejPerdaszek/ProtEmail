@@ -3,7 +3,7 @@ package com.example.api.controller;
 import com.example.api.dto.EmailConfigRequest;
 import com.example.api.dto.WebSocketResponse;
 import com.example.api.exception.EmailsFetchingException;
-import com.example.api.service.EmailService;
+import com.example.api.service.MailboxConnectionService;
 import com.example.api.service.WebSocketService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -18,12 +18,12 @@ import org.springframework.stereotype.Controller;
 public class WebSocketController {
 
     private final WebSocketService webSocketService;
-    private final EmailService emailService;
+    private final MailboxConnectionService mailboxConnectionService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    public WebSocketController(WebSocketService webSocketService, EmailService emailService, SimpMessagingTemplate messagingTemplate) {
+    public WebSocketController(WebSocketService webSocketService, MailboxConnectionService mailboxConnectionService, SimpMessagingTemplate messagingTemplate) {
         this.webSocketService = webSocketService;
-        this.emailService = emailService;
+        this.mailboxConnectionService = mailboxConnectionService;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -34,7 +34,7 @@ public class WebSocketController {
 
         try {
             webSocketService.connect(config.username(), sessionId);
-            emailService.startMonitoring(config);
+            mailboxConnectionService.startMonitoring(config);
             messagingTemplate.convertAndSend(
                     "/topic/connect/" + config.username(),
                     new WebSocketResponse("SUCCESS")
@@ -45,7 +45,7 @@ public class WebSocketController {
         } catch (EmailsFetchingException e) {
 
             webSocketService.disconnect(config.username());
-            emailService.stopMailboxMonitoring(config.username());
+            mailboxConnectionService.stopMailboxMonitoring(config.username());
             messagingTemplate.convertAndSend(
                     "/topic/connect/" + config.username(),
                     new WebSocketResponse("ERROR")
@@ -53,7 +53,7 @@ public class WebSocketController {
             log.error("Failed to connect to mailbox: {}", config.username(), e);
         } catch (Exception e) {
             webSocketService.disconnect(config.username());
-            emailService.stopMailboxMonitoring(config.username());
+            mailboxConnectionService.stopMailboxMonitoring(config.username());
             messagingTemplate.convertAndSend(
                     "/topic/connect/" + config.username(),
                     new WebSocketResponse("ERROR")
@@ -65,7 +65,7 @@ public class WebSocketController {
     @MessageMapping("/disconnect")
     public void disconnect(@Payload String email) {
         webSocketService.disconnect(email);
-        emailService.stopMailboxMonitoring(email);
+        mailboxConnectionService.stopMailboxMonitoring(email);
         log.info("WebSocket disconnection request received for email: {}", email);
     }
 
