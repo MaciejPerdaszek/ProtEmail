@@ -16,9 +16,13 @@ export function ScanLog({ user }) {
         totalElements: 0
     });
 
-    const fetchLogs = async (mailboxId = null, page = 0, size = pageSize) => {
+    const fetchLogs = async (mailboxIds = null, page = 0, size = pageSize) => {
         try {
-            const response = await ScanLogService.fetchScanLogs(mailboxId, page, size);
+            const response = await ScanLogService.fetchScanLogs(
+                mailboxIds,
+                page,
+                size
+            );
             setLogs(response.data);
             setPagination({
                 currentPage: response.currentPage,
@@ -34,6 +38,8 @@ export function ScanLog({ user }) {
         try {
             const data = await MailboxService.fetchMailboxes(user.sub);
             setMailboxes(data);
+            const ids = data.map(mailbox => mailbox.id);
+            fetchLogs(ids, 0, pageSize);
         } catch (error) {
             console.error('Error fetching mailboxes:', error);
         }
@@ -43,24 +49,32 @@ export function ScanLog({ user }) {
         const value = e.target.value;
         setSelectedMailbox(value);
         setPagination(prev => ({ ...prev, currentPage: 0 }));
+
         if (value === 'all') {
-            fetchLogs(null, 0);
+            const allIds = mailboxes.map(mailbox => mailbox.id);
+            fetchLogs(allIds, 0, pageSize);
         } else {
-            fetchLogs(value, 0);
+            fetchLogs([value], 0, pageSize);
         }
     };
 
     const handlePreviousPage = () => {
         const newPage = pagination.currentPage - 1;
         if (newPage >= 0) {
-            fetchLogs(selectedMailbox === 'all' ? null : selectedMailbox, newPage);
+            const ids = selectedMailbox === 'all'
+                ? mailboxes.map(mailbox => mailbox.id)
+                : [selectedMailbox];
+            fetchLogs(ids, newPage, pageSize);
         }
     };
 
     const handleNextPage = () => {
         const newPage = pagination.currentPage + 1;
         if (newPage < pagination.totalPages) {
-            fetchLogs(selectedMailbox === 'all' ? null : selectedMailbox, newPage);
+            const ids = selectedMailbox === 'all'
+                ? mailboxes.map(mailbox => mailbox.id)
+                : [selectedMailbox];
+            fetchLogs(ids, newPage, pageSize);
         }
     };
 
@@ -68,12 +82,14 @@ export function ScanLog({ user }) {
         const newSize = parseInt(e.target.value);
         setPageSize(newSize);
         setPagination(prev => ({ ...prev, currentPage: 0 }));
-        fetchLogs(selectedMailbox === 'all' ? null : selectedMailbox, 0, newSize);
+        const ids = selectedMailbox === 'all'
+            ? mailboxes.map(mailbox => mailbox.id)
+            : [selectedMailbox];
+        fetchLogs(ids, 0, newSize);
     };
 
     useEffect(() => {
         fetchMailboxes();
-        fetchLogs();
     }, []);
 
     return (
@@ -126,7 +142,6 @@ export function ScanLog({ user }) {
                         <Table className="scanlog-table">
                             <thead>
                             <tr>
-                                <th>ID</th>
                                 <th>Sender</th>
                                 <th>Subject</th>
                                 <th>Scan Date</th>
@@ -137,7 +152,6 @@ export function ScanLog({ user }) {
                             <tbody>
                             {logs.map((log) => (
                                 <tr key={log.id}>
-                                    <td>{log.id}</td>
                                     <td>{log.sender}</td>
                                     <td>{log.subject}</td>
                                     <td>{new Date(log.scanDate).toLocaleString('en-EN', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: 'long', day: 'numeric' })}</td>

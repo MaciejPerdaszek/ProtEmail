@@ -4,6 +4,9 @@ import java.util.List;
 import com.example.api.model.ScanLog;
 import com.example.api.service.ScanLogService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,23 +20,19 @@ public class ScanLogController {
         this.scanLogService = scanLogService;
     }
 
-    @GetMapping()
-    public List<ScanLog> getScanLogs(
-            @RequestParam(required = false) Long mailboxId,
+    @GetMapping
+    public ResponseEntity<Page<ScanLog>> getScanLogs(
+            @RequestParam(required = false) List<Long> mailboxId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "5") int size
     ) {
-        log.info("Received request with mailboxId: {}, page: {}, size: {}", mailboxId, page, size);
+        log.info("Fetching scan logs for mailboxIds: {}, page: {}, size: {}",
+                mailboxId, page, size);
 
-        if (mailboxId != null) {
-            return scanLogService.getScanLogsForMailbox(mailboxId, page, size);
-        }
-        return scanLogService.getScanLogs(page, size);
-    }
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ScanLog> logs = scanLogService.getScanLogs(mailboxId, pageable);
 
-    @GetMapping("/count")
-    public ResponseEntity<Long> getCount(@RequestParam(required = false) Long mailboxId) {
-        return ResponseEntity.ok(scanLogService.getCount(mailboxId));
+        return ResponseEntity.ok(logs);
     }
 
     @GetMapping("/{scanLogId}")

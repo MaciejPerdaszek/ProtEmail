@@ -1,35 +1,29 @@
 import axiosInstance from '../axiosConfig';
 
 export const ScanLogService = {
-    fetchScanLogs: async (mailboxId = null, page = 0, pageSize = pageSize) => {
+    fetchScanLogs: async (mailboxIds = [], page = 0, size = 5) => {
         try {
-            let url = '/scan-logs';
             const params = new URLSearchParams({
-                page: page,
-                size: pageSize
+                page: page.toString(),
+                size: size.toString()
             });
 
-            if (mailboxId) {
-                params.append('mailboxId', mailboxId);
+            if (mailboxIds && mailboxIds.length > 0) {
+                mailboxIds.forEach(id => params.append('mailboxId', id.toString()));
             }
 
-            url = `${url}?${params.toString()}`;
-
-            const [logsResponse, countResponse] = await Promise.all([
-                axiosInstance.get(url),
-                axiosInstance.get(`/scan-logs/count${mailboxId ? `?mailboxId=${mailboxId}` : ''}`)
-            ]);
+            const url = `/scan-logs?${params.toString()}`;
+            const response = await axiosInstance.get(url);
 
             return {
-                data: logsResponse.data,
-                total: countResponse.data,
-                totalPages: Math.ceil(countResponse.data / pageSize),
-                currentPage: page
+                data: response.data.content,
+                total: response.data.totalElements,
+                totalPages: response.data.totalPages,
+                currentPage: response.data.number
             };
         } catch (error) {
             console.error('Error fetching scan logs:', error);
             throw error;
         }
     }
-
 }

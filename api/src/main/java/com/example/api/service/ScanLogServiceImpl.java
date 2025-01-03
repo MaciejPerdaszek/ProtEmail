@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import com.example.api.model.ScanLog;
 import com.example.api.repository.ScanLogRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -16,30 +18,8 @@ public class ScanLogServiceImpl implements ScanLogService {
     }
 
     @Override
-    public List<ScanLog> getScanLogs(int page, int size) {
-        return scanLogRepository.findAll()
-                .stream()
-                .skip((long) page * size)
-                .limit(size)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ScanLog> getScanLogsForMailbox(long mailboxId, int page, int size) {
-        return scanLogRepository.findByMailboxId(mailboxId)
-                .stream()
-                .skip((long) page * size)
-                .limit(size)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public Long getCount(Long mailboxId) {
-        if (mailboxId != null) {
-            return scanLogRepository.countByMailboxId(mailboxId);
-        } else {
-            return scanLogRepository.count();
-        }
+    public Page<ScanLog> getScanLogs(List<Long> mailboxIds, Pageable pageable) {
+        return scanLogRepository.findByMailboxIdIn(mailboxIds, pageable);
     }
 
     @Override
