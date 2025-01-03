@@ -12,6 +12,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.example.api.model.PhishingScanResult;
 import com.example.api.model.ScanLog;
 import com.example.api.repository.MailboxRepository;
 import com.example.api.repository.ScanLogRepository;
@@ -27,11 +28,13 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
 
     private final ScanLogRepository scanLogRepository;
     private final MailboxRepository mailboxRepository;
+    private final PhishingScannerService phishingScannerService;
 
     @Autowired
-    public MessageExtractorServiceImpl(ScanLogRepository scanLogRepository, MailboxRepository mailboxRepository) {
+    public MessageExtractorServiceImpl(ScanLogRepository scanLogRepository, MailboxRepository mailboxRepository, PhishingScannerService phishingScannerService) {
         this.scanLogRepository = scanLogRepository;
         this.mailboxRepository = mailboxRepository;
+        this.phishingScannerService = phishingScannerService;
     }
 
     @Override
@@ -41,7 +44,10 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
             List<String> urls = extractUrls(content);
 
             ScanLog scanLog = createScanLog(message, email, content);
-            processScanResults(scanLog, urls);
+
+            PhishingScanResult scanResult = phishingScannerService.scanEmail(extractSender(message), message.getSubject(), content, urls);
+
+            processScanResults(scanLog, scanResult);
 
             log.info("Scan completed for email from: {} subject: {}", scanLog.getSender(), scanLog.getSubject());
         } catch (Exception e) {
@@ -71,7 +77,7 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
         scanLog.setScanDate(new Date());
         scanLog.setMailbox(mailboxRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Mailbox not found: " + email)));
-        scanLog.setScanStatus("Pending");
+        scanLog.setThreatLevel("Pending");
         scanLog.setComment("URL scan in progress");
         return scanLogRepository.save(scanLog);
     }
@@ -82,9 +88,9 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
         return matcher.find() ? matcher.group(1) : from;
     }
 
-    private void processScanResults(ScanLog scanLog, List<String> urls) {
-        scanLog.setScanStatus("Completed");
-        scanLog.setComment("URLs " + urls);
+    private void processScanResults(ScanLog scanLog, PhishingScanResult scanResult) {
+        scanLog.setThreatLevel(scanResult.getRiskLevel());
+        scanLog.setComment(String.join("; ", scanResult.getThreats()));
         scanLogRepository.save(scanLog);
     }
     private String getMessageContent(Message message) throws MessagingException, IOException {

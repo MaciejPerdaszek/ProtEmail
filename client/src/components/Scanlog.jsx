@@ -130,7 +130,7 @@ export function ScanLog({ user }) {
                                 <th>Sender</th>
                                 <th>Subject</th>
                                 <th>Scan Date</th>
-                                <th>Scan Status</th>
+                                <th>Threat Level</th>
                                 <th>Comment</th>
                             </tr>
                             </thead>
@@ -142,8 +142,8 @@ export function ScanLog({ user }) {
                                     <td>{log.subject}</td>
                                     <td>{new Date(log.scanDate).toLocaleString('en-EN', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: 'long', day: 'numeric' })}</td>
                                     <td>
-                                        <span className={`status-badge status-${log.scanStatus.toLowerCase()}`}>
-                                            {log.scanStatus}
+                                        <span className={`status-badge status-${log.threatLevel.toLowerCase().split(/\s+/)[0]}`}>
+                                            {log.threatLevel}
                                         </span>
                                     </td>
                                     <td>{log.comment}</td>

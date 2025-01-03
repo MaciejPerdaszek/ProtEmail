@@ -19,7 +19,7 @@ public class ScanLog {
     private String subject;
     private String content;
     private Date scanDate;
-    private String scanStatus;
+    private String threatLevel;
     private String comment;
 
     @ManyToOne
