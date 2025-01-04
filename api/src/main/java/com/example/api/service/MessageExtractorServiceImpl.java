@@ -66,6 +66,7 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
             urls.add(url);
 
         }
+        log.info("Extracted URLs: {}", urls);
         return urls;
     }
 

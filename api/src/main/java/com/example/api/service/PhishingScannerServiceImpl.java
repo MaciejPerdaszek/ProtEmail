@@ -1,5 +1,7 @@
 package com.example.api.service;
 
+import com.nimbusds.jose.shaded.gson.JsonObject;
+import com.nimbusds.jose.shaded.gson.JsonParser;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,20 +18,22 @@ import java.util.regex.Pattern;
 @Service
 @Slf4j
 public class PhishingScannerServiceImpl implements PhishingScannerService {
-    private static final Pattern IP_URL_PATTERN = Pattern.compile("https?://\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}");
+    private static final String URLSCAN_SUBMIT_URL = "https://urlscan.io/api/v1/scan/";
+    private static final String SAFE_BROWSE_API_URL = "https://safebrowsing.googleapis.com/v4/threatMatches:find";
+
     private static final List<String> SUSPICIOUS_KEYWORDS = List.of(
             "verify your account", "confirm your identity", "unusual activity",
             "password expired", "security alert", "account suspended"
-    );
-    private static final List<String> SUSPICIOUS_DOMAINS = List.of(
-            "secure-login", "account-verify", "banking-secure"
     );
 
     @Value("${google.safebrowsing.api.key}")
     private String apiKey;
 
+    @Value("${urlscan.io.api.key}")
+    private String urlscanApiKey;
+
     private final HttpClient httpClient;
-    private static final String SAFE_BROWSE_API_URL = "https://safebrowsing.googleapis.com/v4/threatMatches:find";
+
 
     public PhishingScannerServiceImpl() {
         this.httpClient = HttpClient.newHttpClient();
@@ -49,20 +53,7 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
             }
         }
 
-        // Check URLs using both existing logic and Google Safe Browsing API
         for (String url : urls) {
-            // Existing URL checks
-            if (IP_URL_PATTERN.matcher(url).find()) {
-                threats.add("IP-based URL detected: " + url);
-                riskScore += 20;
-            }
-
-            for (String suspiciousDomain : SUSPICIOUS_DOMAINS) {
-                if (url.toLowerCase().contains(suspiciousDomain.toLowerCase())) {
-                    threats.add("Suspicious domain found: " + url);
-                    riskScore += 15;
-                }
-            }
 
             // Google Safe Browsing API check
             try {
@@ -71,16 +62,18 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
                     riskScore += 30;
                 }
             } catch (Exception e) {
-                threats.add("Error checking URL with Safe Browsing API: " + e.getMessage());
+                log.error("Error checking URL with Safe Browsing API", e);
             }
-        }
 
-        // Remaining existing checks
-        if (content.toLowerCase().contains("urgent") ||
-                content.toLowerCase().contains("immediate action") ||
-                subject.toLowerCase().contains("urgent")) {
-            threats.add("Urgent language detected");
-            riskScore += 10;
+            // URLScan.io check
+            try {
+                if (checkUrlWithUrlScan(url)) {
+                    threats.add("URL flagged by URLScan.io: " + url);
+                    riskScore += 30;
+                }
+            } catch (Exception e) {
+                log.error("Error checking URL with URLScan.io API", e);
+            }
         }
 
         String riskLevel = calculateRiskLevel(riskScore);
@@ -106,8 +99,6 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
             }
             """.formatted(url);
 
-        log.info("Request body: {}", requestBody);
-
         String fullUrl = SAFE_BROWSE_API_URL + "?key=" + apiKey;
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -116,14 +107,8 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
-        log.info("Request headers: {}", request.headers());
-
         try {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            log.info("Response status code: {}", response.statusCode());
-            log.info("Response headers: {}", response.headers());
-            log.info("Response body: {}", response.body());
 
             if (response.statusCode() != 200) {
                 log.error("Error from Safe Browsing API: {} - {}", response.statusCode(), response.body());
@@ -137,6 +122,69 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
             log.error("Exception while calling Safe Browsing API", e);
             throw e;
         }
+    }
+
+    private boolean checkUrlWithUrlScan(String url) throws IOException, InterruptedException {
+        log.info("Checking URL with URLScan.io: {}", url);
+
+        String submitRequestBody = """
+            {
+                "url": "%s",
+                "visibility": "private"
+            }
+            """.formatted(url);
+
+        HttpRequest submitRequest = HttpRequest.newBuilder()
+                .uri(URI.create(URLSCAN_SUBMIT_URL))
+                .header("Content-Type", "application/json")
+                .header("API-Key", urlscanApiKey)
+                .POST(HttpRequest.BodyPublishers.ofString(submitRequestBody))
+                .build();
+
+        HttpResponse<String> submitResponse = httpClient.send(submitRequest, HttpResponse.BodyHandlers.ofString());
+
+        if (submitResponse.statusCode() != 200) {
+            log.error("Error submitting URL to URLScan.io: {} - {}", submitResponse.statusCode(), submitResponse.body());
+            throw new IOException("URLScan.io API returned status code: " + submitResponse.statusCode());
+        }
+
+        String result = extractResultFromResponse(submitResponse.body());
+        Thread.sleep(15000);
+
+        HttpRequest resultRequest = HttpRequest.newBuilder()
+                .uri(URI.create(result))
+                .header("API-Key", urlscanApiKey)
+                .GET()
+                .build();
+
+        HttpResponse<String> resultResponse = httpClient.send(resultRequest, HttpResponse.BodyHandlers.ofString());
+
+        if (resultResponse.statusCode() != 200) {
+            log.error("Error getting results from URLScan.io: {} - {}", resultResponse.statusCode(), resultResponse.body());
+            throw new IOException("URLScan.io API returned status code: " + resultResponse.statusCode());
+        }
+
+        boolean isMalicious = analyzeScanResults(resultResponse.body());
+        log.info("URL {} is {}", url, isMalicious ? "potentially malicious" : "likely safe");
+        return isMalicious;
+    }
+
+    private String extractResultFromResponse(String responseBody) {
+        JsonObject jsonObject = JsonParser.parseString(responseBody).getAsJsonObject();
+
+        if (jsonObject.has("result")) {
+            return jsonObject.get("result").getAsString();
+        } else {
+            throw new IllegalArgumentException("Field 'result' not found in response body");
+        }
+    }
+
+    private boolean analyzeScanResults(String results) {
+        // Check for common malicious indicators in URLScan.io results
+        return results.contains("malicious") ||
+                results.contains("phishing") ||
+                results.contains("suspicious") ||
+                results.contains("blacklisted");
     }
 
     private String calculateRiskLevel(int riskScore) {
