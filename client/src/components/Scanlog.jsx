@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {Button, Container, FormGroup, Label, Table} from 'reactstrap';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { ScanLogService } from "../api/ScanLogService.js";
-import { MailboxService } from "../api/MailboxService.js";
+import {ChevronLeft, ChevronRight} from 'lucide-react';
+import {ScanLogService} from "../api/ScanLogService.js";
+import {MailboxService} from "../api/MailboxService.js";
 import "../stylings/Scanlog.css";
 
-export function ScanLog({ user }) {
+export function ScanLog({user}) {
     const [logs, setLogs] = useState([]);
     const [mailboxes, setMailboxes] = useState([]);
     const [selectedMailbox, setSelectedMailbox] = useState('all');
-    const [pageSize, setPageSize] = useState(5);
+    const [pageSize, setPageSize] = useState(10);
     const [pagination, setPagination] = useState({
         currentPage: 0,
         totalPages: 0,
@@ -48,7 +48,7 @@ export function ScanLog({ user }) {
     const handleMailboxChange = (e) => {
         const value = e.target.value;
         setSelectedMailbox(value);
-        setPagination(prev => ({ ...prev, currentPage: 0 }));
+        setPagination(prev => ({...prev, currentPage: 0}));
 
         if (value === 'all') {
             const allIds = mailboxes.map(mailbox => mailbox.id);
@@ -81,7 +81,7 @@ export function ScanLog({ user }) {
     const handlePageSizeChange = (e) => {
         const newSize = parseInt(e.target.value);
         setPageSize(newSize);
-        setPagination(prev => ({ ...prev, currentPage: 0 }));
+        setPagination(prev => ({...prev, currentPage: 0}));
         const ids = selectedMailbox === 'all'
             ? mailboxes.map(mailbox => mailbox.id)
             : [selectedMailbox];
@@ -112,9 +112,9 @@ export function ScanLog({ user }) {
                                         onChange={handlePageSizeChange}
                                         className="form-input"
                                     >
-                                        <option value="5">5</option>
                                         <option value="10">10</option>
                                         <option value="20">20</option>
+                                        <option value="50">50</option>
                                     </select>
                                 </FormGroup>
                                 <FormGroup className="form-group">
@@ -137,30 +137,51 @@ export function ScanLog({ user }) {
                     </Container>
 
 
-
                     <Container className="table-container">
                         <Table className="scanlog-table">
                             <thead>
                             <tr>
-                                <th>Sender</th>
-                                <th>Subject</th>
-                                <th>Scan Date</th>
-                                <th>Threat Level</th>
-                                <th>Comment</th>
+                                <th style={{width: '15%'}}>Sender</th>
+                                <th style={{width: '15%'}}>Subject</th>
+                                <th style={{width: '20%'}}>Scan Date</th>
+                                <th style={{width: '15%'}}>Threat Level</th>
+                                <th style={{width: '35%'}}>Comment</th>
                             </tr>
                             </thead>
                             <tbody>
                             {logs.map((log) => (
                                 <tr key={log.id}>
-                                    <td>{log.sender}</td>
-                                    <td>{log.subject}</td>
-                                    <td>{new Date(log.scanDate).toLocaleString('en-EN', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: 'long', day: 'numeric' })}</td>
+                                    <td className="truncate-cell">
+                                        <div className="cell-content">
+                                            {log.sender}
+                                        </div>
+                                    </td>
+                                    <td className="truncate-cell">
+                                        <div className="cell-content">
+                                            {log.subject}
+                                        </div>
+                                    </td>
+                                    <td className="truncate-cell">
+                                        <div className="cell-content">
+                                            {new Date(log.scanDate).toLocaleString('en-EN', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
+                                            })}
+                                        </div>
+                                    </td>
                                     <td>
                                         <span className={`status-badge status-${log.threatLevel.toLowerCase().split(/\s+/)[0]}`}>
                                             {log.threatLevel}
                                         </span>
                                     </td>
-                                    <td>{log.comment}</td>
+                                    <td className="truncate-cell">
+                                        <div className="cell-content">
+                                            {log.comment}
+                                        </div>
+                                    </td>
                                 </tr>
                             ))}
                             </tbody>

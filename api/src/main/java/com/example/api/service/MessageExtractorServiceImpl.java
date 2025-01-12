@@ -5,8 +5,6 @@ import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.Multipart;
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -39,11 +37,12 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
 
     @Override
     public void performPhishingScan(Message message, String email) {
+        ScanLog scanLog = null;
         try {
             String content = getMessageContent(message);
             List<String> urls = extractUrls(content);
 
-            ScanLog scanLog = createScanLog(message, email, content);
+            scanLog = createScanLog(message, email, content);
 
             PhishingScanResult scanResult = phishingScannerService.scanEmail(extractSender(message), message.getSubject(), content, urls);
 
@@ -51,6 +50,9 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
 
             log.info("Scan completed for email from: {} subject: {}", scanLog.getSender(), scanLog.getSubject());
         } catch (Exception e) {
+            if (scanLog != null) {
+                handleAbortScan(scanLog);
+            }
             log.error("Error during phishing scan: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to perform phishing scan", e);
         }
@@ -111,6 +113,12 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
             }
         }
         return contentBuilder.toString();
+    }
+
+    private void handleAbortScan(ScanLog scanLog) {
+        scanLog.setThreatLevel("Error");
+        scanLog.setComment("Phishing scan aborted");
+        scanLogRepository.save(scanLog);
     }
 }
 

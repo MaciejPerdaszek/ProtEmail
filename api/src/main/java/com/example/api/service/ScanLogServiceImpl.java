@@ -1,7 +1,6 @@
 package com.example.api.service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import com.example.api.model.ScanLog;
 import com.example.api.repository.ScanLogRepository;
 import org.springframework.data.domain.Page;

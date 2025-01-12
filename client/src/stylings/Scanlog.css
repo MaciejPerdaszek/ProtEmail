@@ -5,7 +5,7 @@
 }
 
 .scanlog-content {
-    max-width: 90rem;
+    max-width: 100rem;
     margin: 0 auto;
 }
 
@@ -33,7 +33,7 @@
     padding: 1.5rem;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     border: 1px solid #2A2A2A;
-    height: 600px;
+    height: 700px;
     display: flex;
     flex-direction: column;
 }
@@ -77,6 +77,7 @@
     border-collapse: separate;
     border-spacing: 0;
     color: #D1D5DB;
+    table-layout: fixed;
 }
 
 .scanlog-table th {
@@ -92,16 +93,53 @@
 }
 
 .scanlog-table td {
-    padding: 0.75rem 1rem;
+    padding: 8px;
     border-bottom: 1px solid #2A2A2A;
+    vertical-align: top;
+    position: relative;
 }
 
-.scanlog-table tbody tr {
-    transition: background-color 0.2s ease-in-out;
+.scanlog-table tr {
+    transition: all 0.2s ease-in-out;
+    min-height: 48px;
 }
 
 .scanlog-table tbody tr:hover {
     background-color: #2A2A2A;
+}
+
+.scanlog-table tr:hover {
+    height: auto;
+    background-color: #2A2A2A;
+}
+
+.truncate-cell {
+    position: relative;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cell-content {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.truncate-cell:hover {
+    position: relative;
+    z-index: 1000;
+}
+
+.truncate-cell:hover .cell-content {
+    position: static;
+    width: 100%;
+    white-space: normal;
+    word-wrap: break-word;
+    background-color: #2b2b2b;
+    padding: 8px;
+    overflow: visible;
+    border-radius: 4px;
 }
 
 .status-badge {
@@ -128,9 +166,14 @@
     color: #F59E0B;
 }
 
-.status-high {
+.status-high, .status-error {
     background-color: rgba(239, 68, 68, 0.1);
     color: #EF4444;
+}
+
+.status-pending {
+    background-color: rgba(156, 163, 175, 0.1);
+    color: #9CA3AF;
 }
 
 .card-header-flex {
@@ -141,6 +184,28 @@
 .form-input {
     padding: 6px 12px;
     font-size: 1rem;
+    background-color: #2A2A2A;
+    border: 1px solid #404040;
+    color: #ffffff;
+    border-radius: 4px;
+}
+
+.form-label {
+    color: #9CA3AF;
+    margin-right: 0.5rem;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
 }
 
 .pagination-container {
@@ -191,19 +256,6 @@
 .pagination-info {
     font-size: 0.875rem;
     color: #d1d1d1;
-}
-
-.header-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem;
-}
-
-.header-controls {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
 }
 
 @media (max-width: 1024px) {
