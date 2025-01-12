@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import {useEffect, useState} from 'react';
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Container, Button } from 'reactstrap';
 import { Mail, Clock, AlertTriangle, Undo } from 'lucide-react';
@@ -9,6 +9,7 @@ export function Mailbox() {
     const { email } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
+    const [isButtonDisabled, setIsButtonDisabled] = useState(false);
     const { mailbox = {} } = location.state || {};
 
     const {scannedMailboxes, initializeWebSocket, disconnectMailbox, synchronizeState} = useScanningStore();
@@ -25,6 +26,9 @@ export function Mailbox() {
     };
 
     const handleStartScan = async () => {
+        if (isButtonDisabled) return;
+
+        setIsButtonDisabled(true);
         try {
             const mailboxConfig = {
                 protocol: "imap",
@@ -33,15 +37,26 @@ export function Mailbox() {
                 username: email,
             };
 
-            initializeWebSocket(email, mailboxConfig);
+            await initializeWebSocket(email, mailboxConfig);
         } catch (error) {
             console.error('Error during connection setup:', error);
             disconnectMailbox(email);
         }
+
+        setTimeout(() => {
+            setIsButtonDisabled(false);
+        }, 5000);
     };
 
     const handleStopScan = () => {
+        if (isButtonDisabled) return;
+
+        setIsButtonDisabled(true);
         disconnectMailbox(email);
+
+        setTimeout(() => {
+            setIsButtonDisabled(false);
+        }, 5000);
     };
 
     const handleNavigateBack = () => {
@@ -80,27 +95,38 @@ export function Mailbox() {
                         </Container>
 
                         <Container className="status-item">
+                            <Mail className="status-icon"/>
+                            <Container className="status-info">
+                                <span className="status-label">Emails Scanned:</span>
+                                <span>{currentMailboxState.emailsScanned}</span>
+                            </Container>
+                        </Container>
+
+                        <Container className="status-item">
                             <AlertTriangle className="status-icon"/>
                             <Container className="status-info">
                                 <span className="status-label">Threats Found:</span>
                                 <span>{currentMailboxState.threatsFound}</span>
                             </Container>
                         </Container>
+
                     </Container>
 
                     {currentMailboxState.isScanning ? (
                         <Button
                             className="scan-button"
                             onClick={handleStopScan}
+                            disabled={isButtonDisabled}
                         >
-                            Stop Scan
+                            {isButtonDisabled ? 'Please wait...' : 'Stop Scan'}
                         </Button>
                     ) : (
                         <Button
                             className="scan-button"
                             onClick={handleStartScan}
+                            disabled={isButtonDisabled}
                         >
-                            Start Scan
+                            {isButtonDisabled ? 'Please wait...' : 'Start Scan'}
                         </Button>
                     )}
                 </Container>

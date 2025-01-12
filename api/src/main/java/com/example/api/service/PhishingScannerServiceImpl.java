@@ -46,18 +46,15 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
             if (probability > 0.9) {
                 threats.add("Very high probability of phishing or spam content");
                 riskScore += 30;
-            } else if (probability > 0.75) {
+            } else if (probability > 0.70) {
                 threats.add("High probability of phishing or spam content");
-                riskScore += 25;
+                riskScore += 20;
             } else if (probability > 0.5) {
                 threats.add("Medium probability of phishing or spam content");
-                riskScore += 20;
-            } else if (probability > 0.25) {
-                threats.add("Low probability of phishing or spam content");
-                riskScore += 15;
-            } else if (probability > 0.1) {
-                threats.add("Very low probability of phishing or spam content");
                 riskScore += 10;
+            } else if (probability > 0.4) {
+                threats.add("Low probability of phishing or spam content");
+                riskScore += 5;
             }
         } catch (Exception e) {
             log.error("AI model check failed", e);

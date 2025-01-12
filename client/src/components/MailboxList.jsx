@@ -7,13 +7,9 @@ export function MailboxList({mailboxes, onEdit, onDelete, onNavigate, activeDrop
 
     const getMailboxStatus = (mailbox) => {
         const isScanning = scannedMailboxes[mailbox.email]?.isScanning;
-        const threatsFound = scannedMailboxes[mailbox.email]?.threatsFound || 0;
 
         if (isScanning) {
             return '🟢 Scanning...';
-        } else if (threatsFound > 0) {
-            return `🟡 Connected (${threatsFound} threats
-            found)`;
         }
         return '⚪ Disconnected';
     };

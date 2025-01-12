@@ -27,12 +27,15 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
     private final ScanLogRepository scanLogRepository;
     private final MailboxRepository mailboxRepository;
     private final PhishingScannerService phishingScannerService;
+    private final WebSocketNotificationService notificationService;
 
     @Autowired
-    public MessageExtractorServiceImpl(ScanLogRepository scanLogRepository, MailboxRepository mailboxRepository, PhishingScannerService phishingScannerService) {
+    public MessageExtractorServiceImpl(ScanLogRepository scanLogRepository, MailboxRepository mailboxRepository,
+                                       PhishingScannerService phishingScannerService, WebSocketNotificationService notificationService) {
         this.scanLogRepository = scanLogRepository;
         this.mailboxRepository = mailboxRepository;
         this.phishingScannerService = phishingScannerService;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -94,8 +97,18 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
     private void processScanResults(ScanLog scanLog, PhishingScanResult scanResult) {
         scanLog.setThreatLevel(scanResult.getRiskLevel());
         scanLog.setComment(String.join("; ", scanResult.getThreats()));
-        scanLogRepository.save(scanLog);
+        ScanLog savedLog = scanLogRepository.save(scanLog);
+
+        // If there are any threats, send a WebSocket notification
+        if (!scanResult.getThreats().isEmpty() ||
+                !"Low".equalsIgnoreCase(scanResult.getRiskLevel())) {
+            notificationService.notifyThreatDetected(
+                    scanLog.getMailbox().getEmail(),
+                    savedLog
+            );
+        }
     }
+
     private String getMessageContent(Message message) throws MessagingException, IOException {
         Object content = message.getContent();
         if (content instanceof Multipart) {

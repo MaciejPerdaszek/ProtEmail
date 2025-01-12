@@ -69,8 +69,8 @@ export function DashBoard({user}) {
 
         initialize();
 
-        const interval = setInterval(synchronizeState, 30000);
-        return () => clearInterval(interval);
+        // const interval = setInterval(synchronizeState, 30000);
+        // return () => clearInterval(interval);
     }, [mailboxes]);
 
     useEffect(() => {
@@ -181,6 +181,7 @@ export function DashBoard({user}) {
             scanningState: scannedMailboxes[mailbox.email] || {
                 isScanning: false,
                 lastScan: null,
+                scannedMailboxes: 0,
                 threatsFound: 0
             }
         }));

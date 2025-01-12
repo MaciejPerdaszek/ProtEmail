@@ -29,6 +29,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
     private final WebSocketService webSocketService;
     private final ConcurrentHashMap<String, MailboxConnection> mailboxConnections;
     private final ConcurrentHashMap<String, EmailConfigRequest> mailboxConfigs;
+    private final Set<String> processedMessageIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private static class MailboxConnection {
         private Store store;
@@ -87,60 +88,57 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
     }
 
     @Override
-    public void startMonitoring(EmailConfigRequest config)  {
+    public void startMonitoring(EmailConfigRequest config) {
         try {
+            MailboxConnection existingConnection = mailboxConnections.get(config.username());
+            if (existingConnection != null && existingConnection.isMonitoring) {
+                log.info("Mailbox {} is already being monitored", config.username());
+                return;
+            }
+
             Mailbox mailbox = mailboxRepository.findByEmail(config.username())
                     .orElseThrow(() -> new RuntimeException("Mailbox not found"));
 
             MailboxConnection connection = connectToMailbox(config, mailbox);
+            connection.isMonitoring = true;
+            connection.shouldReconnect = true;
 
             mailboxConnections.put(config.username(), connection);
             mailboxConfigs.put(config.username(), config);
-            connection = mailboxConnections.get(config.username());
-            if (connection == null || connection.isMonitoring) {
-                return;
-            }
 
-            connection.isMonitoring = true;
-            connection.shouldReconnect = true;
-            MailboxConnection finalConnection = connection;
-            executorService.submit(() -> monitorMailbox(config, finalConnection));
+            executorService.submit(() -> monitorMailbox(config, connection));
         } catch (Exception e) {
             log.error("Error starting mailbox monitoring for {}: {}", config.username(), e.getMessage());
             throw new EmailsFetchingException("Failed to start monitoring", e);
         }
     }
 
-    private void monitorMailbox(EmailConfigRequest config, MailboxConnection connection) {
-        while (connection.isMonitoring && connection.shouldReconnect) {
-            try {
-                log.info("Monitoring mailbox: {}", config.username());
-                setupMessageListener(connection, config.username());
 
-                while (connection.isMonitoring) {
+    private void monitorMailbox(EmailConfigRequest config, MailboxConnection connection) {
+        try {
+            setupMessageListener(connection, config.username());
+
+            while (connection.isMonitoring && connection.shouldReconnect) {
+                try {
                     if (!isConnectionValid(connection)) {
                         throw new MessagingException("Connection is no longer valid");
                     }
 
                     IMAPFolder imapFolder = (IMAPFolder) connection.inbox;
 
-                    // Set a timeout for IDLE command
-                    imapFolder.idle(true);
+                    imapFolder.idle(false); // false = nie blokuj wątku na zawsze
                     connection.updateLastActivityTime();
 
-                    log.info("Waiting for new emails for mailbox: {}", config.username());
+                    Thread.sleep(100);
 
-                    // Perform keepalive check
-                    if (connection.isConnectionStale()) {
-                        log.info("Performing keepalive for mailbox: {}", config.username());
-                        connection.inbox.getMessageCount();
-                        connection.updateLastActivityTime();
-                    }
+                } catch (Exception e) {
+                    log.error("Error in mailbox monitoring for {}: {}", config.username(), e.getMessage());
+                    handleConnectionError(config, connection);
+                    Thread.sleep(1000);
                 }
-            } catch (Exception e) {
-                log.error("Error in mailbox monitoring for {}: {}", config.username(), e.getMessage());
-                handleConnectionError(config, connection);
             }
+        } catch (Exception e) {
+            log.error("Fatal error in mailbox monitoring: ", e);
         }
     }
 
@@ -217,9 +215,38 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
         Message[] messages = event.getMessages();
 
         for (Message message : messages) {
-            messageExtractorService.performPhishingScan(message, email);
-            //webSocketService.sendMessage(config.username(), "New email received: " + subject);
+            try {
+                String messageId = getMessageId(message, email);
+                if (processedMessageIds.add(messageId)) {
+                    messageExtractorService.performPhishingScan(message, email);
+                } else {
+                    log.debug("Skipping duplicate message with ID: {}", messageId);
+                }
+            } catch (MessagingException e) {
+                log.error("Error processing message: {}", e.getMessage());
+            }
         }
+    }
+
+    private String getMessageId(Message message, String email) throws MessagingException {
+        StringBuilder idBuilder = new StringBuilder();
+        idBuilder.append(email).append("_");
+
+        String[] headers = message.getHeader("Message-ID");
+        if (headers != null && headers.length > 0) {
+            idBuilder.append(headers[0]);
+        } else {
+            idBuilder.append(message.getSubject())
+                    .append("_")
+                    .append(message.getSentDate().getTime());
+
+            Address[] from = message.getFrom();
+            if (from != null && from.length > 0) {
+                idBuilder.append("_").append(from[0].toString());
+            }
+        }
+
+        return idBuilder.toString();
     }
 
     @Override
@@ -248,6 +275,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
             cleanupConnection(connection);
             mailboxConnections.remove(email);
             mailboxConfigs.remove(email);
+            processedMessageIds.clear();
         }
     }
 

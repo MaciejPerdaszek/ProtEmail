@@ -32,26 +32,44 @@ const useScanningStore = create(
                                                 [email]: {
                                                     ...(state.scannedMailboxes[email] || {}),
                                                     isScanning: true,
-                                                    lastScan: new Date().toISOString()
+                                                    lastScan: new Date().toISOString(),
+                                                    emailsScanned: state.scannedMailboxes[email]?.emailsScanned || 0,
+                                                    threatsFound: state.scannedMailboxes[email]?.threatsFound || 0
                                                 }
                                             }
                                         }));
                                     } else if (response.error === "ERROR") {
                                         toast(`Failed to connect to ${email}`, {type: 'error'});
-                                        set((state) => ({
-                                            scannedMailboxes: {
-                                                ...state.scannedMailboxes,
-                                                [email]: {
-                                                    ...(state.scannedMailboxes[email] || {}),
-                                                    isScanning: false
-                                                }
-                                            }
-                                        }));
-                                        client.deactivate();
-                                        store.removeStompClient(email);
+                                        store.disconnectMailbox(email);
                                     }
                                 } catch (error) {
                                     console.error("Error parsing message:", error);
+                                }
+                            });
+
+                            client.subscribe(`/topic/emails/${email}`, (message) => {
+                                try {
+                                    const threatData = JSON.parse(message.body);
+                                    console.log("Received threat data:", threatData);
+
+                                    set((state) => ({
+                                        scannedMailboxes: {
+                                            ...state.scannedMailboxes,
+                                            [email]: {
+                                                ...(state.scannedMailboxes[email] || {}),
+                                                emailsScanned: (state.scannedMailboxes[email]?.emailsScanned || 0) + 1,
+                                                threatsFound: (threatData.threatLevel === "High" || threatData.threatLevel === "Medium" || threatData.threatLevel === "Low"
+                                                    ? (state.scannedMailboxes[email]?.threatsFound || 0) + 1
+                                                    : state.scannedMailboxes[email]?.threatsFound || 0)
+                                            }
+                                        }
+                                    }));
+
+                                    if (threatData.threatLevel === "High" || threatData.threatLevel === "Medium" || threatData.threatLevel === "Low")
+                                        toast.warning(`Threat detected in ${email}`);
+
+                                } catch (error) {
+                                    console.error("Error processing threat data:", error);
                                 }
                             });
 
@@ -191,6 +209,7 @@ const useScanningStore = create(
                     [email]: {
                         isScanning: state.scannedMailboxes[email].isScanning,
                         lastScan: state.scannedMailboxes[email].lastScan,
+                        emailsScanned: state.scannedMailboxes[email].emailsScanned,
                         threatsFound: state.scannedMailboxes[email].threatsFound
                     }
                 }), {})
