@@ -1,15 +1,12 @@
 package com.example.api.service;
 
-import javax.mail.BodyPart;
-import javax.mail.Message;
-import javax.mail.MessagingException;
-import javax.mail.Multipart;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.example.api.dto.EmailContent;
 import com.example.api.model.PhishingScanResult;
 import com.example.api.model.ScanLog;
 import com.example.api.repository.MailboxRepository;
@@ -39,15 +36,21 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
     }
 
     @Override
-    public void performPhishingScan(Message message, String email) {
+    public void performPhishingScan(EmailContent emailContent) {
         ScanLog scanLog = null;
         try {
-            String content = getMessageContent(message);
-            List<String> urls = extractUrls(content);
+            log.info("Email content details:");
+            log.info("From: {}", emailContent.from() != null ? Arrays.toString(emailContent.from()) : "null");
+            log.info("Subject: {}", emailContent.subject());
+            log.info("Content object: {}", emailContent.content());
+            log.info("Content class: {}", emailContent.content() != null ? emailContent.content().getClass().getName() : "null");
 
-            scanLog = createScanLog(message, email, content);
+            List<String> urls = extractUrls(emailContent.content());
+            log.info("Performing phishing scan for email from: {} subject: {}", extractSender(emailContent), emailContent.subject());
 
-            PhishingScanResult scanResult = phishingScannerService.scanEmail(extractSender(message), message.getSubject(), content, urls);
+            scanLog = createScanLog(emailContent);
+
+            PhishingScanResult scanResult = phishingScannerService.scanEmail(extractSender(emailContent), emailContent.subject(), emailContent.content(), urls);
 
             processScanResults(scanLog, scanResult);
 
@@ -75,21 +78,20 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
         return urls;
     }
 
-    private ScanLog createScanLog(Message message, String email, String content) throws MessagingException {
+    private ScanLog createScanLog(EmailContent emailContent) {
         ScanLog scanLog = new ScanLog();
-        scanLog.setSender(extractSender(message));
-        scanLog.setSubject(message.getSubject());
-        scanLog.setContent(content);
+        scanLog.setSender(extractSender(emailContent));
+        scanLog.setSubject(emailContent.subject());
         scanLog.setScanDate(new Date());
-        scanLog.setMailbox(mailboxRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Mailbox not found: " + email)));
+        scanLog.setMailbox(mailboxRepository.findByEmail(emailContent.username())
+                .orElseThrow(() -> new RuntimeException("Mailbox not found: " + emailContent.username())));
         scanLog.setThreatLevel("Pending");
         scanLog.setComment("URL scan in progress");
         return scanLogRepository.save(scanLog);
     }
 
-    private String extractSender(Message message) throws MessagingException {
-        String from = message.getFrom()[0].toString();
+    private String extractSender(EmailContent emailContent) {
+        String from = emailContent.from()[0].toString();
         Matcher matcher = Pattern.compile("<(.+?)>").matcher(from);
         return matcher.find() ? matcher.group(1) : from;
     }
@@ -99,7 +101,6 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
         scanLog.setComment(String.join("; ", scanResult.getThreats()));
         ScanLog savedLog = scanLogRepository.save(scanLog);
 
-        // If there are any threats, send a WebSocket notification
         if (!scanResult.getThreats().isEmpty() ||
                 !"Low".equalsIgnoreCase(scanResult.getRiskLevel())) {
             notificationService.notifyThreatDetected(
@@ -107,25 +108,6 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
                     savedLog
             );
         }
-    }
-
-    private String getMessageContent(Message message) throws MessagingException, IOException {
-        Object content = message.getContent();
-        if (content instanceof Multipart) {
-            return handleMultipart((Multipart) content);
-        }
-        return content.toString();
-    }
-
-    private String handleMultipart(Multipart multipart) throws MessagingException, IOException {
-        StringBuilder contentBuilder = new StringBuilder();
-        for (int i = 0; i < multipart.getCount(); i++) {
-            BodyPart bodyPart = multipart.getBodyPart(i);
-            if (bodyPart.getContentType().toLowerCase().startsWith("text/plain")) {
-                contentBuilder.append(bodyPart.getContent().toString());
-            }
-        }
-        return contentBuilder.toString();
     }
 
     private void handleAbortScan(ScanLog scanLog) {

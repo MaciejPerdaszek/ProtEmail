@@ -1,8 +1,9 @@
 package com.example.api.service;
 
 import javax.mail.Message;
+import com.example.api.dto.EmailContent;
 
 public interface MessageExtractorService {
 
-    void performPhishingScan(Message message, String email);
+    void performPhishingScan(EmailContent emailContent);
 }

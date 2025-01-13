@@ -1,16 +1,14 @@
 package com.example.api.service;
 
 import javax.mail.*;
-import javax.mail.event.MessageCountAdapter;
-import javax.mail.event.MessageCountEvent;
+import javax.mail.search.*;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import com.example.api.dto.EmailConfigRequest;
-import com.example.api.exception.EmailsFetchingException;
+import com.example.api.dto.EmailContent;
 import com.example.api.model.Mailbox;
 import com.example.api.repository.MailboxRepository;
-import com.sun.mail.imap.IMAPFolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PreDestroy;
@@ -19,305 +17,171 @@ import jakarta.annotation.PreDestroy;
 @Service
 public class MailboxConnectionServiceImpl implements MailboxConnectionService {
 
-    private static final long KEEPALIVE_INTERVAL = 5 * 60 * 1000;
-    private static final long RECONNECT_DELAY = 10 * 1000;
-    private static final int INITIAL_RECONNECT_DELAY = 1000; // 1s
-    private static final int MAX_RECONNECT_DELAY = 300000;
-
+    private static final long POLLING_INTERVAL = 60 * 1000; // 1 minute
+    private static final int CONNECTION_TIMEOUT = 60000; // 60 seconds
     private final MailboxRepository mailboxRepository;
     private final MessageExtractorService messageExtractorService;
-    private final ExecutorService executorService;
-    private final ConcurrentHashMap<String, MailboxConnection> mailboxConnections;
+    private final ScheduledExecutorService scheduledExecutor;
+    private final ExecutorService phishingScanExecutor;
+    private final BlockingQueue<EmailContent> phishingScanQueue;
     private final ConcurrentHashMap<String, EmailConfigRequest> mailboxConfigs;
-    private final ConcurrentHashMap<String, Integer> reconnectAttempts = new ConcurrentHashMap<>();
-    private final Set<String> processedMessageIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final ConcurrentHashMap<String, ScheduledFuture<?>> pollingTasks;
+    private final ConcurrentHashMap<String, Date> lastCheckTimes;
+    private final Set<String> processedMessageIds;
+    private volatile boolean isRunning = true;
 
-    private static class MailboxConnection {
-        private Store store;
-        private Folder inbox;
-        private volatile boolean isMonitoring;
-        private volatile boolean shouldReconnect;
-        private long lastActivityTime;
 
-        public MailboxConnection(Store store, Folder inbox) {
-            this.store = store;
-            this.inbox = inbox;
-            this.isMonitoring = false;
-            this.shouldReconnect = true;
-            this.lastActivityTime = System.currentTimeMillis();
-        }
-
-        public void updateLastActivityTime() {
-            this.lastActivityTime = System.currentTimeMillis();
-        }
-
-        public boolean isConnectionStale() {
-            return System.currentTimeMillis() - lastActivityTime > KEEPALIVE_INTERVAL;
-        }
-    }
-
-    public MailboxConnectionServiceImpl(MailboxRepository mailboxRepository, MessageExtractorService messageExtractorService) {
+    public MailboxConnectionServiceImpl(MailboxRepository mailboxRepository,
+                                        MessageExtractorService messageExtractorService) {
         this.mailboxRepository = mailboxRepository;
         this.messageExtractorService = messageExtractorService;
-        this.executorService = Executors.newFixedThreadPool(10);
-        this.mailboxConnections = new ConcurrentHashMap<>();
+        this.scheduledExecutor = Executors.newScheduledThreadPool(5);
+        this.phishingScanExecutor = Executors.newFixedThreadPool(10);
+        this.phishingScanQueue = new LinkedBlockingQueue<>();
         this.mailboxConfigs = new ConcurrentHashMap<>();
+        this.pollingTasks = new ConcurrentHashMap<>();
+        this.lastCheckTimes = new ConcurrentHashMap<>();
+        this.processedMessageIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+        startPhishingScanWorkers();
     }
 
-    private MailboxConnection connectToMailbox(EmailConfigRequest config, Mailbox mailbox)
-            throws MessagingException {
+
+    private void startPhishingScanWorkers() {
+        int numberOfWorkers = 5;
+        for (int i = 0; i < numberOfWorkers; i++) {
+            phishingScanExecutor.submit(() -> {
+                while (isRunning) {
+                    try {
+                        EmailContent emailContent = phishingScanQueue.poll(1, TimeUnit.SECONDS);
+                        if (emailContent != null) {
+                            try {
+                                messageExtractorService.performPhishingScan(
+                                        emailContent
+                                );
+                                log.debug("Completed phishing scan for message: {}", emailContent.messageId());
+                            } catch (Exception e) {
+                                log.error("Error during phishing scan for message {}: {}",
+                                        emailContent.messageId(), e.getMessage());
+                            }
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            });
+        }
+    }
+
+    private Properties createMailProperties() {
         Properties props = new Properties();
-        props.put("mail.store.protocol", config.protocol());
-        props.put("mail.imap.host", config.host());
-        props.put("mail.imap.port", config.port());
+        props.put("mail.store.protocol", "imap");
         props.put("mail.imap.ssl.enable", "true");
         props.put("mail.imap.ssl.trust", "*");
+        props.put("mail.imap.connectiontimeout", CONNECTION_TIMEOUT);
+        props.put("mail.imap.timeout", CONNECTION_TIMEOUT);
+        props.put("mail.imap.writetimeout", CONNECTION_TIMEOUT);
+        return props;
+    }
 
-        props.put("mail.imap.connectionpoolsize", "1");
-        props.put("mail.imap.connectionpooltimeout", "300000");
-        props.put("mail.imap.connectiontimeout", "60000");
-        props.put("mail.imap.timeout", "60000");
-        props.put("mail.imap.writetimeout", "60000");
-        props.put("mail.imap.statuscachetimeout", "600000");
-        props.put("mail.imap.keepalive", "true");
-        props.put("mail.imap.socketFactory.fallback", "false");
-        props.put("mail.imap.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+    private void pollMailbox(EmailConfigRequest config) {
+        Store store = null;
+        Folder inbox = null;
+        try {
+            log.info("Starting polling cycle for {}", config.username());
 
-        Session session = Session.getDefaultInstance(props, null);
-        session.setDebug(true);
+            Mailbox mailbox = mailboxRepository.findByEmail(config.username())
+                    .orElseThrow(() -> new RuntimeException("Mailbox not found"));
 
-        Store store = session.getStore(config.protocol());
-        if (!store.isConnected()) {
+            Session session = Session.getInstance(createMailProperties());
+            //session.setDebug(true);
+            store = session.getStore(config.protocol());
             store.connect(config.host(), config.username(), mailbox.getPassword());
-        }
 
-        Folder inbox = store.getFolder("INBOX");
-        if (!inbox.isOpen()) {
+            inbox = store.getFolder("INBOX");
             inbox.open(Folder.READ_WRITE);
+
+            Calendar cal = Calendar.getInstance();
+            cal.add(Calendar.MINUTE, -1);
+            Date oneMinuteAgo = cal.getTime();
+
+            int messageCount = inbox.getMessageCount();
+            int startIndex = Math.max(messageCount - 10, 1);
+            Message[] lastMessages = inbox.getMessages(startIndex, messageCount);
+
+            List<Message> recentMessages = new ArrayList<>();
+            for (Message message : lastMessages) {
+                Date receivedDate = message.getReceivedDate();
+                Date sentDate = message.getSentDate();
+
+                if ((receivedDate != null && receivedDate.after(oneMinuteAgo)) ||
+                        (sentDate != null && sentDate.after(oneMinuteAgo))) {
+                    recentMessages.add(message);
+                    log.debug("Found recent message - Received: {}, Sent: {}", receivedDate, sentDate);
+                }
+            }
+
+            log.info("Found {} messages for {} in last minute", recentMessages.size(), config.username());
+
+            for (Message message : recentMessages) {
+                try {
+                    String messageId = getMessageId(message, config.username());
+                    if (processedMessageIds.add(messageId)) {
+                        EmailContent emailContent = EmailContent.fromMessage(
+                                message,
+                                config.username(),
+                                messageId
+                        );
+
+                        if (!phishingScanQueue.offer(emailContent)) {
+                            log.warn("Unable to add message {} to phishing scan queue - queue might be full", messageId);
+                        }
+                    }
+                } catch (MessagingException | IOException e) {
+                    log.error("Error processing message: {}", e.getMessage());
+                }
+            }
+
+            lastCheckTimes.put(config.username(), new Date());
+            log.info("Completed polling cycle for {}, queued {} messages",
+                    config.username(), recentMessages.size());
+
+        } catch (Exception e) {
+            log.error("Error during polling for {}: {}", config.username(), e.getMessage(), e);
+        } finally {
+            try {
+                if (inbox != null && inbox.isOpen()) {
+                    inbox.close(false);
+                }
+                if (store != null && store.isConnected()) {
+                    store.close();
+                }
+            } catch (MessagingException e) {
+                log.error("Error cleaning up resources: {}", e.getMessage());
+            }
         }
-
-        // Verify connection is valid
-        if (!store.isConnected() || !inbox.isOpen()) {
-            throw new MessagingException("Failed to establish valid connection");
-        }
-
-        MailboxConnection connection = new MailboxConnection(store, inbox);
-        connection.updateLastActivityTime();
-
-        log.debug("Successfully connected to mailbox: {}. Store connected: {}, Inbox open: {}",
-                config.username(), store.isConnected(), inbox.isOpen());
-
-        return connection;
     }
 
     @Override
     public void startMonitoring(EmailConfigRequest config) {
-        try {
-            MailboxConnection existingConnection = mailboxConnections.get(config.username());
-            if (existingConnection != null && existingConnection.isMonitoring) {
-                log.info("Mailbox {} is already being monitored", config.username());
-                return;
-            }
-
-            Mailbox mailbox = mailboxRepository.findByEmail(config.username())
-                    .orElseThrow(() -> new RuntimeException("Mailbox not found"));
-
-            MailboxConnection connection = connectToMailbox(config, mailbox);
-            connection.isMonitoring = true;
-            connection.shouldReconnect = true;
-
-            mailboxConnections.put(config.username(), connection);
-            mailboxConfigs.put(config.username(), config);
-
-            executorService.submit(() -> monitorMailbox(config, connection));
-        } catch (Exception e) {
-            log.error("Error starting mailbox monitoring for {}: {}", config.username(), e.getMessage());
-            throw new EmailsFetchingException("Failed to start monitoring", e);
+        if (pollingTasks.containsKey(config.username())) {
+            log.info("Mailbox {} is already being monitored", config.username());
+            return;
         }
-    }
 
+        mailboxConfigs.put(config.username(), config);
+        lastCheckTimes.put(config.username(), new Date());
 
-    private void monitorMailbox(EmailConfigRequest config, MailboxConnection connection) {
-        String email = config.username();
+        ScheduledFuture<?> pollingTask = scheduledExecutor.scheduleAtFixedRate(
+                () -> pollMailbox(config),
+                0, // start immediately
+                POLLING_INTERVAL,
+                TimeUnit.MILLISECONDS
+        );
 
-        try {
-            setupMessageListener(connection, email);
-
-            while (connection.isMonitoring && connection.shouldReconnect) {
-                try {
-                    if (!isConnectionValid(connection)) {
-                        throw new MessagingException("Connection needs refresh");
-                    }
-
-                    IMAPFolder imapFolder = (IMAPFolder) connection.inbox;
-                    AtomicBoolean idleTerminated = new AtomicBoolean(false);
-
-                    Future<?> idleFuture = executorService.submit(() -> {
-                        try {
-                            imapFolder.idle(true);
-                        } catch (MessagingException e) {
-                            if (connection.isMonitoring && !idleTerminated.get()) {
-                                log.error("IDLE error for {}: {}", email, e.getMessage());
-                            }
-                        }
-                    });
-
-                    try {
-                        idleFuture.get(4, TimeUnit.MINUTES);
-                    } catch (TimeoutException e) {
-                        idleTerminated.set(true);
-                        try {
-                            // Bezpiecznie przerywamy IDLE
-                            imapFolder.doCommand(p -> {
-                                p.simpleCommand("DONE", null);
-                                return null;
-                            });
-                        } catch (MessagingException ex) {
-                            // Ignorujemy błąd jeśli IDLE już zostało przerwane
-                            if (!ex.getMessage().contains("Unknown command: DONE")) {
-                                throw ex;
-                            }
-                        }
-                        idleFuture.cancel(true);
-                    } finally {
-                        connection.updateLastActivityTime();
-                    }
-
-                    Thread.sleep(100);
-
-                } catch (MessagingException e) {
-                    if (connection.isMonitoring) {
-                        log.error("Connection error for {}: {}", email, e.getMessage());
-                        handleConnectionError(config, connection);
-                        Thread.sleep(RECONNECT_DELAY);
-                    }
-                } catch (Exception e) {
-                    if (connection.isMonitoring) {
-                        log.error("Unexpected error for {}: {}", email, e.getMessage());
-                        handleConnectionError(config, connection);
-                        Thread.sleep(RECONNECT_DELAY);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.error("Fatal error in monitoring {}: {}", email, e.getMessage());
-        } finally {
-            if (connection != null) {
-                cleanupConnection(connection);
-            }
-        }
-    }
-
-    private boolean isConnectionValid(MailboxConnection connection) {
-        try {
-            if (!connection.store.isConnected() || !connection.inbox.isOpen()) {
-                return false;
-            }
-
-            IMAPFolder imapFolder = (IMAPFolder) connection.inbox;
-            imapFolder.doCommand(p -> {
-                p.simpleCommand("NOOP", null);
-                return null;
-            });
-            return true;
-        } catch (Exception e) {
-            log.debug("Connection validation failed: {}", e.getMessage());
-            return false;
-        }
-    }
-
-    private void handleConnectionError(EmailConfigRequest config, MailboxConnection connection) {
-        try {
-            log.debug("Handling connection error for {}. Current state - isMonitoring: {}, shouldReconnect: {}",
-                    config.username(), connection.isMonitoring, connection.shouldReconnect);
-
-            cleanupConnection(connection);
-
-            if (connection.isMonitoring && connection.shouldReconnect) {
-                int attempts = reconnectAttempts.getOrDefault(config.username(), 0);
-                long delay = Math.min(
-                        INITIAL_RECONNECT_DELAY * (long) Math.pow(2, attempts),
-                        MAX_RECONNECT_DELAY
-                );
-
-                log.debug("Attempting reconnection for {} after {} ms (attempt {})",
-                        config.username(), delay, attempts + 1);
-
-                Thread.sleep(delay);
-                reconnectMailbox(config);
-                reconnectAttempts.put(config.username(), attempts + 1);
-
-                log.debug("Reconnection attempt completed for {}", config.username());
-            }
-        } catch (Exception e) {
-            log.error("Error handling connection failure for {}: {}",
-                    config.username(), e.getMessage(), e);
-        }
-    }
-
-    private void cleanupConnection(MailboxConnection connection) {
-        try {
-            if (connection.inbox != null && connection.inbox.isOpen()) {
-                connection.inbox.close(false);
-            }
-            if (connection.store != null && connection.store.isConnected()) {
-                connection.store.close();
-            }
-        } catch (MessagingException e) {
-            log.error("Error cleaning up connection: {}", e.getMessage());
-        }
-    }
-
-    private void reconnectMailbox(EmailConfigRequest config) {
-        try {
-            Mailbox mailbox = mailboxRepository.findByEmail(config.username())
-                    .orElseThrow(() -> new RuntimeException("Mailbox not found"));
-
-            MailboxConnection newConnection = connectToMailbox(config, mailbox);
-            newConnection.isMonitoring = true;
-            newConnection.shouldReconnect = true;
-
-            mailboxConnections.put(config.username(), newConnection);
-
-            executorService.submit(() -> monitorMailbox(config, newConnection));
-
-            log.info("Reconnected to mailbox and restarted monitoring: {}", config.username());
-        } catch (Exception e) {
-            log.error("Failed to reconnect: {}", e.getMessage());
-            throw new EmailsFetchingException("Failed to reconnect", e);
-        }
-    }
-
-    private void setupMessageListener(MailboxConnection connection, String email) {
-        try {
-            connection.inbox.addMessageCountListener(new MessageCountAdapter() {
-                @Override
-                public void messagesAdded(MessageCountEvent event) {
-                    handleNewMessages(event, email);
-                    connection.updateLastActivityTime();
-                }
-            });
-        } catch (Exception e) {
-            log.error("Error setting up message listener: {}", e.getMessage());
-            throw new EmailsFetchingException("Failed to setup message listener", e);
-        }
-    }
-
-    private void handleNewMessages(MessageCountEvent event, String email) {
-        Message[] messages = event.getMessages();
-
-        for (Message message : messages) {
-            try {
-                String messageId = getMessageId(message, email);
-                if (processedMessageIds.add(messageId)) {
-                    messageExtractorService.performPhishingScan(message, email);
-                } else {
-                    log.debug("Skipping duplicate message with ID: {}", messageId);
-                }
-            } catch (MessagingException e) {
-                log.error("Error processing message: {}", e.getMessage());
-            }
-        }
+        pollingTasks.put(config.username(), pollingTask);
+        log.info("Started polling monitoring for mailbox: {}", config.username());
     }
 
     private String getMessageId(Message message, String email) throws MessagingException {
@@ -343,43 +207,52 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
 
     @Override
     public Map<String, Boolean> getMailboxConnectionStates() {
-        Map<String, Boolean> connectionStates = new HashMap<>();
-        mailboxConnections.forEach((email, connection) -> {
-            boolean isConnected = isConnectionValid(connection) && connection.isMonitoring;
-            connectionStates.put(email, isConnected);
+        Map<String, Boolean> states = new HashMap<>();
+        pollingTasks.forEach((email, future) -> {
+            states.put(email, !future.isDone() && !future.isCancelled());
         });
-        log.info("Mailbox connection states: {}", connectionStates);
-        return connectionStates;
-    }
-
-    @Override
-    public void stopAllMailboxMonitoring() {
-        mailboxConnections.forEach((email, _) -> stopMailboxMonitoring(email));
+        return states;
     }
 
     @Override
     public void stopMailboxMonitoring(String email) {
-        MailboxConnection connection = mailboxConnections.get(email);
-        if (connection != null) {
-            connection.isMonitoring = false;
-            connection.shouldReconnect = false;
-            cleanupConnection(connection);
-            mailboxConnections.remove(email);
-            mailboxConfigs.remove(email);
-            processedMessageIds.clear();
+        ScheduledFuture<?> task = pollingTasks.remove(email);
+        if (task != null) {
+            task.cancel(true);
         }
+        mailboxConfigs.remove(email);
+        lastCheckTimes.remove(email);
+        log.info("Stopped monitoring mailbox: {}", email);
+    }
+
+    @Override
+    public void stopAllMailboxMonitoring() {
+        pollingTasks.forEach((_, task) -> task.cancel(true));
+        pollingTasks.clear();
+        mailboxConfigs.clear();
+        lastCheckTimes.clear();
+        processedMessageIds.clear();
+        log.info("Stopped monitoring all mailboxes");
     }
 
     @PreDestroy
     public void cleanup() {
+        isRunning = false;
         stopAllMailboxMonitoring();
-        executorService.shutdown();
+
+        scheduledExecutor.shutdown();
+        phishingScanExecutor.shutdown();
+
         try {
-            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-                executorService.shutdownNow();
+            if (!scheduledExecutor.awaitTermination(60, TimeUnit.SECONDS)) {
+                scheduledExecutor.shutdownNow();
+            }
+            if (!phishingScanExecutor.awaitTermination(60, TimeUnit.SECONDS)) {
+                phishingScanExecutor.shutdownNow();
             }
         } catch (InterruptedException e) {
-            executorService.shutdownNow();
+            scheduledExecutor.shutdownNow();
+            phishingScanExecutor.shutdownNow();
             Thread.currentThread().interrupt();
         }
     }
