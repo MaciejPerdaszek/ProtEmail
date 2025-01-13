@@ -4,9 +4,8 @@ import javax.mail.*;
 import javax.mail.event.MessageCountAdapter;
 import javax.mail.event.MessageCountEvent;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import com.example.api.dto.EmailConfigRequest;
 import com.example.api.exception.EmailsFetchingException;
 import com.example.api.model.Mailbox;
@@ -22,13 +21,15 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
 
     private static final long KEEPALIVE_INTERVAL = 5 * 60 * 1000;
     private static final long RECONNECT_DELAY = 10 * 1000;
+    private static final int INITIAL_RECONNECT_DELAY = 1000; // 1s
+    private static final int MAX_RECONNECT_DELAY = 300000;
 
     private final MailboxRepository mailboxRepository;
     private final MessageExtractorService messageExtractorService;
     private final ExecutorService executorService;
-    private final WebSocketService webSocketService;
     private final ConcurrentHashMap<String, MailboxConnection> mailboxConnections;
     private final ConcurrentHashMap<String, EmailConfigRequest> mailboxConfigs;
+    private final ConcurrentHashMap<String, Integer> reconnectAttempts = new ConcurrentHashMap<>();
     private final Set<String> processedMessageIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private static class MailboxConnection {
@@ -55,12 +56,10 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
         }
     }
 
-    public MailboxConnectionServiceImpl(MailboxRepository mailboxRepository, MessageExtractorService messageExtractorService,
-                                        WebSocketService webSocketService) {
+    public MailboxConnectionServiceImpl(MailboxRepository mailboxRepository, MessageExtractorService messageExtractorService) {
         this.mailboxRepository = mailboxRepository;
         this.messageExtractorService = messageExtractorService;
-        this.webSocketService = webSocketService;
-        this.executorService = Executors.newCachedThreadPool();
+        this.executorService = Executors.newFixedThreadPool(10);
         this.mailboxConnections = new ConcurrentHashMap<>();
         this.mailboxConfigs = new ConcurrentHashMap<>();
     }
@@ -73,18 +72,42 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
         props.put("mail.imap.port", config.port());
         props.put("mail.imap.ssl.enable", "true");
         props.put("mail.imap.ssl.trust", "*");
-        props.put("mail.imap.auth.plain.disable", "true");
+
+        props.put("mail.imap.connectionpoolsize", "1");
+        props.put("mail.imap.connectionpooltimeout", "300000");
+        props.put("mail.imap.connectiontimeout", "60000");
+        props.put("mail.imap.timeout", "60000");
+        props.put("mail.imap.writetimeout", "60000");
+        props.put("mail.imap.statuscachetimeout", "600000");
         props.put("mail.imap.keepalive", "true");
+        props.put("mail.imap.socketFactory.fallback", "false");
+        props.put("mail.imap.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
 
         Session session = Session.getDefaultInstance(props, null);
-        //session.setDebug(true);
+        session.setDebug(true);
+
         Store store = session.getStore(config.protocol());
-        store.connect(config.host(), config.username(), mailbox.getPassword());
+        if (!store.isConnected()) {
+            store.connect(config.host(), config.username(), mailbox.getPassword());
+        }
 
         Folder inbox = store.getFolder("INBOX");
-        inbox.open(Folder.READ_WRITE);
+        if (!inbox.isOpen()) {
+            inbox.open(Folder.READ_WRITE);
+        }
 
-        return new MailboxConnection(store, inbox);
+        // Verify connection is valid
+        if (!store.isConnected() || !inbox.isOpen()) {
+            throw new MessagingException("Failed to establish valid connection");
+        }
+
+        MailboxConnection connection = new MailboxConnection(store, inbox);
+        connection.updateLastActivityTime();
+
+        log.debug("Successfully connected to mailbox: {}. Store connected: {}, Inbox open: {}",
+                config.username(), store.isConnected(), inbox.isOpen());
+
+        return connection;
     }
 
     @Override
@@ -115,54 +138,120 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
 
 
     private void monitorMailbox(EmailConfigRequest config, MailboxConnection connection) {
+        String email = config.username();
+
         try {
-            setupMessageListener(connection, config.username());
+            setupMessageListener(connection, email);
 
             while (connection.isMonitoring && connection.shouldReconnect) {
                 try {
                     if (!isConnectionValid(connection)) {
-                        throw new MessagingException("Connection is no longer valid");
+                        throw new MessagingException("Connection needs refresh");
                     }
 
                     IMAPFolder imapFolder = (IMAPFolder) connection.inbox;
+                    AtomicBoolean idleTerminated = new AtomicBoolean(false);
 
-                    imapFolder.idle(false); // false = nie blokuj wątku na zawsze
-                    connection.updateLastActivityTime();
+                    Future<?> idleFuture = executorService.submit(() -> {
+                        try {
+                            imapFolder.idle(true);
+                        } catch (MessagingException e) {
+                            if (connection.isMonitoring && !idleTerminated.get()) {
+                                log.error("IDLE error for {}: {}", email, e.getMessage());
+                            }
+                        }
+                    });
+
+                    try {
+                        idleFuture.get(4, TimeUnit.MINUTES);
+                    } catch (TimeoutException e) {
+                        idleTerminated.set(true);
+                        try {
+                            // Bezpiecznie przerywamy IDLE
+                            imapFolder.doCommand(p -> {
+                                p.simpleCommand("DONE", null);
+                                return null;
+                            });
+                        } catch (MessagingException ex) {
+                            // Ignorujemy błąd jeśli IDLE już zostało przerwane
+                            if (!ex.getMessage().contains("Unknown command: DONE")) {
+                                throw ex;
+                            }
+                        }
+                        idleFuture.cancel(true);
+                    } finally {
+                        connection.updateLastActivityTime();
+                    }
 
                     Thread.sleep(100);
 
+                } catch (MessagingException e) {
+                    if (connection.isMonitoring) {
+                        log.error("Connection error for {}: {}", email, e.getMessage());
+                        handleConnectionError(config, connection);
+                        Thread.sleep(RECONNECT_DELAY);
+                    }
                 } catch (Exception e) {
-                    log.error("Error in mailbox monitoring for {}: {}", config.username(), e.getMessage());
-                    handleConnectionError(config, connection);
-                    Thread.sleep(1000);
+                    if (connection.isMonitoring) {
+                        log.error("Unexpected error for {}: {}", email, e.getMessage());
+                        handleConnectionError(config, connection);
+                        Thread.sleep(RECONNECT_DELAY);
+                    }
                 }
             }
         } catch (Exception e) {
-            log.error("Fatal error in mailbox monitoring: ", e);
+            log.error("Fatal error in monitoring {}: {}", email, e.getMessage());
+        } finally {
+            if (connection != null) {
+                cleanupConnection(connection);
+            }
         }
     }
 
     private boolean isConnectionValid(MailboxConnection connection) {
         try {
-            return connection.store.isConnected() &&
-                    connection.inbox != null &&
-                    connection.inbox.isOpen();
+            if (!connection.store.isConnected() || !connection.inbox.isOpen()) {
+                return false;
+            }
+
+            IMAPFolder imapFolder = (IMAPFolder) connection.inbox;
+            imapFolder.doCommand(p -> {
+                p.simpleCommand("NOOP", null);
+                return null;
+            });
+            return true;
         } catch (Exception e) {
+            log.debug("Connection validation failed: {}", e.getMessage());
             return false;
         }
     }
 
     private void handleConnectionError(EmailConfigRequest config, MailboxConnection connection) {
         try {
+            log.debug("Handling connection error for {}. Current state - isMonitoring: {}, shouldReconnect: {}",
+                    config.username(), connection.isMonitoring, connection.shouldReconnect);
+
             cleanupConnection(connection);
 
             if (connection.isMonitoring && connection.shouldReconnect) {
+                int attempts = reconnectAttempts.getOrDefault(config.username(), 0);
+                long delay = Math.min(
+                        INITIAL_RECONNECT_DELAY * (long) Math.pow(2, attempts),
+                        MAX_RECONNECT_DELAY
+                );
 
-                Thread.sleep(RECONNECT_DELAY);
+                log.debug("Attempting reconnection for {} after {} ms (attempt {})",
+                        config.username(), delay, attempts + 1);
+
+                Thread.sleep(delay);
                 reconnectMailbox(config);
+                reconnectAttempts.put(config.username(), attempts + 1);
+
+                log.debug("Reconnection attempt completed for {}", config.username());
             }
         } catch (Exception e) {
-            log.error("Error handling connection failure: {}", e.getMessage());
+            log.error("Error handling connection failure for {}: {}",
+                    config.username(), e.getMessage(), e);
         }
     }
 
@@ -185,11 +274,14 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
                     .orElseThrow(() -> new RuntimeException("Mailbox not found"));
 
             MailboxConnection newConnection = connectToMailbox(config, mailbox);
-            mailboxConnections.put(config.username(), newConnection);
             newConnection.isMonitoring = true;
             newConnection.shouldReconnect = true;
 
-            log.info("Reconnected to mailbox: {}", config.username());
+            mailboxConnections.put(config.username(), newConnection);
+
+            executorService.submit(() -> monitorMailbox(config, newConnection));
+
+            log.info("Reconnected to mailbox and restarted monitoring: {}", config.username());
         } catch (Exception e) {
             log.error("Failed to reconnect: {}", e.getMessage());
             throw new EmailsFetchingException("Failed to reconnect", e);
@@ -263,7 +355,6 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
     @Override
     public void stopAllMailboxMonitoring() {
         mailboxConnections.forEach((email, _) -> stopMailboxMonitoring(email));
-        webSocketService.disconnectAll();
     }
 
     @Override
@@ -283,5 +374,13 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
     public void cleanup() {
         stopAllMailboxMonitoring();
         executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
     }
 }
