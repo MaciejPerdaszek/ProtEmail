@@ -17,7 +17,6 @@ export function MailboxList({mailboxes, onEdit, onDelete, onNavigate, activeDrop
     const getStatusClass = (mailbox) => {
         const isScanning = scannedMailboxes[mailbox.email]?.isScanning;
 
-        console.log('isScanning', isScanning);
 
         if (isScanning) return 'scanning';
         return 'disconnected';

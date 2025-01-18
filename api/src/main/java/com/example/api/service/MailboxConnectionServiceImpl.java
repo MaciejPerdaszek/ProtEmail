@@ -1,12 +1,11 @@
 package com.example.api.service;
 
 import javax.mail.*;
-import javax.mail.search.*;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import com.example.api.dto.EmailConfigRequest;
 import com.example.api.dto.EmailContent;
+import com.example.api.exception.EmailsFetchingException;
 import com.example.api.model.Mailbox;
 import com.example.api.repository.MailboxRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +19,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
     private static final long POLLING_INTERVAL = 60 * 1000; // 1 minute
     private static final int CONNECTION_TIMEOUT = 60000; // 60 seconds
     private final MailboxRepository mailboxRepository;
+    private final WebSocketNotificationService notificationService;
     private final MessageExtractorService messageExtractorService;
     private final ScheduledExecutorService scheduledExecutor;
     private final ExecutorService phishingScanExecutor;
@@ -28,12 +28,14 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
     private final ConcurrentHashMap<String, ScheduledFuture<?>> pollingTasks;
     private final ConcurrentHashMap<String, Date> lastCheckTimes;
     private final Set<String> processedMessageIds;
+    private final Set<String> initialConnectionNotified = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private volatile boolean isRunning = true;
 
 
     public MailboxConnectionServiceImpl(MailboxRepository mailboxRepository,
-                                        MessageExtractorService messageExtractorService) {
+                                        MessageExtractorService messageExtractorService, WebSocketNotificationService notificationService) {
         this.mailboxRepository = mailboxRepository;
+        this.notificationService = notificationService;
         this.messageExtractorService = messageExtractorService;
         this.scheduledExecutor = Executors.newScheduledThreadPool(5);
         this.phishingScanExecutor = Executors.newFixedThreadPool(10);
@@ -99,6 +101,12 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
             store = session.getStore(config.protocol());
             store.connect(config.host(), config.username(), mailbox.getPassword());
 
+            //first time connection success
+
+            if (initialConnectionNotified.add(config.username())) {
+                notificationService.notifyConnectionSuccess(config.username());
+            }
+
             inbox = store.getFolder("INBOX");
             inbox.open(Folder.READ_WRITE);
 
@@ -149,6 +157,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
 
         } catch (Exception e) {
             log.error("Error during polling for {}: {}", config.username(), e.getMessage(), e);
+            throw new EmailsFetchingException("Failed to poll mailbox", e);
         } finally {
             try {
                 if (inbox != null && inbox.isOpen()) {
@@ -174,8 +183,16 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
         lastCheckTimes.put(config.username(), new Date());
 
         ScheduledFuture<?> pollingTask = scheduledExecutor.scheduleAtFixedRate(
-                () -> pollMailbox(config),
-                0, // start immediately
+                () -> {
+                    try {
+                        pollMailbox(config);
+                    } catch (Exception e) {
+                        log.error("Error during polling: {}", e.getMessage());
+                        stopMailboxMonitoring(config.username());
+                        notificationService.notifyConnectionError(config.username());
+                    }
+                },
+                0,
                 POLLING_INTERVAL,
                 TimeUnit.MILLISECONDS
         );
@@ -222,6 +239,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
         }
         mailboxConfigs.remove(email);
         lastCheckTimes.remove(email);
+        initialConnectionNotified.remove(email);
         log.info("Stopped monitoring mailbox: {}", email);
     }
 

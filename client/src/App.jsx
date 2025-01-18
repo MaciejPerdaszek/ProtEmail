@@ -20,7 +20,6 @@ function App() {
             try {
                 const data = await AuthService.currentUser();
                 if (data) {
-                    console.log(data);
                     setUser(data);
                     setAuthenticated(true);
                 }

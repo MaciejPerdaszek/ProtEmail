@@ -1,6 +1,7 @@
 package com.example.api.service;
 
 import com.example.api.dto.ThreatNotification;
+import com.example.api.dto.WebSocketResponse;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
@@ -17,5 +18,21 @@ public class WebSocketNotificationService {
         );
 
         messagingTemplate.convertAndSend("/topic/emails/" + email, notification);
+    }
+
+    public void notifyConnectionError(String email) {
+        WebSocketResponse notification = new WebSocketResponse(
+                "ERROR"
+        );
+
+        messagingTemplate.convertAndSend("/topic/connect/" + email, notification);
+    }
+
+    public void notifyConnectionSuccess(String email) {
+        WebSocketResponse notification = new WebSocketResponse(
+                "SUCCESS"
+        );
+
+        messagingTemplate.convertAndSend("/topic/connect/" + email, notification);
     }
 }

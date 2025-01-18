@@ -20,6 +20,7 @@ export function DashBoard({user}) {
     const [isLoading, setIsLoading] = useState(false);
     const [isPopupOpen, setIsPopupOpen] = useState(false);
     const [selectedMailbox, setSelectedMailbox] = useState(null);
+    const [originalEmail, setOriginalEmail] = useState(null);
 
     const {scannedMailboxes, initializeWebSocket, synchronizeState, disconnectMailbox, disconnectAllMailboxes} = useScanningStore();
 
@@ -123,7 +124,10 @@ export function DashBoard({user}) {
         e.preventDefault();
         setIsLoading(true);
         try {
-            //disconnectMailbox(mailbox.email);
+            if (scannedMailboxes[originalEmail]?.isScanning) {
+                disconnectMailbox(originalEmail);
+            }
+
             await MailboxService.updateMailbox(
                 user.sub,
                 editingMailbox.id,
@@ -145,7 +149,10 @@ export function DashBoard({user}) {
 
         setIsLoading(true);
         try {
-            disconnectMailbox(selectedMailbox.email);
+            if (scannedMailboxes[selectedMailbox.email]?.isScanning) {
+                disconnectMailbox(selectedMailbox.email);
+            }
+
             await MailboxService.deleteMailbox(selectedMailbox.id);
             await fetchMailboxes();
             setActiveDropdown(null);
@@ -195,6 +202,7 @@ export function DashBoard({user}) {
     const openEditPopup = useCallback((mailbox, e) => {
         e.stopPropagation();
         setEditingMailbox(mailbox);
+        setOriginalEmail(mailbox.email);
         setShowEditPopup(true);
         setActiveDropdown(null);
     }, []);

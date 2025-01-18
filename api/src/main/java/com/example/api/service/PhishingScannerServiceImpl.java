@@ -40,7 +40,6 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
     public PhishingScanResult scanEmail(String sender, String subject, String content, List<String> urls) {
         log.info("Scanning email from: {} with content: {}", sender, content);
         List<String> threats = new ArrayList<>();
-        List<String> scanErrors = new ArrayList<>();
         int riskScore = 0;
 
         try {
@@ -79,7 +78,7 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
                 }
             } catch (SafeBrowsingApiException e) {
                 log.error("Safe Browsing API check failed for URL: {}", url, e);
-                scanErrors.add("Safe Browsing check failed for URL: " + url);
+                threats.add("Safe Browsing check failed for URL: " + url);
             }
 
             try {

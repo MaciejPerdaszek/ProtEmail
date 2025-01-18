@@ -39,7 +39,7 @@ const useScanningStore = create(
                                             }
                                         }));
                                     } else if (response.error === "ERROR") {
-                                        toast(`Failed to connect to ${email}`, {type: 'error'});
+                                        toast(`Failed to connect to ${email}, Invalid credentials`, {type: 'error'});
                                         store.disconnectMailbox(email);
                                     }
                                 } catch (error) {
