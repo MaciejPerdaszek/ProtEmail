@@ -11,6 +11,8 @@ import com.auth0.client.mgmt.filter.LogEventFilter;
 import com.auth0.json.mgmt.logevents.LogEvent;
 import com.auth0.json.mgmt.logevents.LogEventsPage;
 import com.auth0.net.Request;
+import com.example.api.repository.MailboxRepository;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -21,11 +23,15 @@ public class Auth0DeletedUserListener {
 
     private final ManagementAPI mgmt;
 
-    public Auth0DeletedUserListener(ManagementAPI mgmt) {
+    private final MailboxRepository mailboxRepository;
+
+    public Auth0DeletedUserListener(ManagementAPI mgmt, MailboxRepository mailboxRepository) {
         this.mgmt = mgmt;
+        this.mailboxRepository = mailboxRepository;
     }
 
     @Scheduled(fixedDelay = 600000)
+    @Transactional
     public void checkForDeletedUsers() {
         try {
             log.info("Checking for deleted users");
@@ -55,7 +61,7 @@ public class Auth0DeletedUserListener {
 
                     if (userId != null) {
                         log.info("Found deleted user: {}", userId);
-                        cleanupUserData(userId);
+                        mailboxRepository.deleteByUserId(userId);
                     }
                 }
             }
@@ -81,9 +87,5 @@ public class Auth0DeletedUserListener {
             log.error("Error decoding user ID: {}", userId, e);
             return userId;
         }
-    }
-
-    private void cleanupUserData(String userId) {
-        log.info("Cleaning up data for user: {}", userId);
     }
 }

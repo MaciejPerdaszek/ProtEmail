@@ -2,8 +2,6 @@ package com.example.api.model;
 
 import java.util.List;
 import com.example.api.config.AESConverter;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -23,12 +21,9 @@ public class Mailbox {
 
     private String type;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    @JsonBackReference
-    private User user;
+    private String userId;
 
-    @OneToMany(mappedBy = "mailbox", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "mailbox", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private List<ScanLog> scanLogs;
 }

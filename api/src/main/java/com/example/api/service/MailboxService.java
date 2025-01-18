@@ -2,7 +2,6 @@ package com.example.api.service;
 
 import java.util.List;
 import com.example.api.model.Mailbox;
-import com.example.api.model.User;
 
 public interface MailboxService {
 

@@ -2,9 +2,7 @@ package com.example.api.service;
 
 import java.util.List;
 import com.example.api.model.Mailbox;
-import com.example.api.model.User;
 import com.example.api.repository.MailboxRepository;
-import com.example.api.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -14,12 +12,10 @@ import org.springframework.stereotype.Service;
 public class MailboxServiceImpl implements MailboxService {
 
    private final MailboxRepository mailboxRepository;
-   private final UserRepository userRepository;
 
     @Autowired
-    public MailboxServiceImpl(MailboxRepository mailboxRepository, UserRepository userRepository) {
+    public MailboxServiceImpl(MailboxRepository mailboxRepository) {
         this.mailboxRepository = mailboxRepository;
-        this.userRepository = userRepository;
     }
 
     @Override
@@ -34,8 +30,6 @@ public class MailboxServiceImpl implements MailboxService {
 
     @Override
     public Mailbox updateMailbox(Mailbox mailbox, String userId, Long mailboxId) {  // Renamed for clarity
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Did not find user id - " + userId));
         mailbox.setId(mailboxId);
 
         if (mailbox.getId() == null) {
@@ -54,20 +48,18 @@ public class MailboxServiceImpl implements MailboxService {
         if (mailbox.getType() != null) {
             existingMailbox.setType(mailbox.getType());
         }
-        existingMailbox.setUser(user);
 
         return mailboxRepository.save(existingMailbox);
     }
 
     public Mailbox addMailbox(Mailbox mailbox, String userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Did not find user id - " + userId));
 
         if (mailbox.getId() != null) {
             throw new IllegalArgumentException("New mailbox should not have an ID");
         }
 
-        mailbox.setUser(user);
+        mailbox.setUserId(userId);
+
         return mailboxRepository.save(mailbox);
     }
 

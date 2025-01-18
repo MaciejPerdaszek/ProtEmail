@@ -17,7 +17,6 @@ public class ScanLog {
     private Long id;
     private String sender;
     private String subject;
-    private String content;
     private Date scanDate;
     private String threatLevel;
     private String comment;

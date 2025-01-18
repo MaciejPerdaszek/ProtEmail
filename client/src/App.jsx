@@ -9,13 +9,11 @@ import React, {useEffect, useState} from "react";
 import {BrowserRouter as Router, Routes, Route, Navigate} from "react-router-dom";
 import {ToastContainer} from "react-toastify";
 import {AuthService} from "./api/AuthService";
-import {UserService} from "./api/UserService.js";
 
 function App() {
 
     const [authenticated, setAuthenticated] = useState(false);
     const [user, setUser] = useState(undefined);
-    const [id, setId] = useState(undefined);
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -24,7 +22,6 @@ function App() {
                 if (data) {
                     console.log(data);
                     setUser(data);
-                    setId(data.sub);
                     setAuthenticated(true);
                 }
             } catch (error) {
@@ -36,22 +33,6 @@ function App() {
 
         fetchUserData();
     }, []);
-
-    useEffect(() => {
-        const fetchUser = async () => {
-            if (!id || !authenticated) return;
-
-            try {
-                await UserService.addUser(id);
-            } catch (error) {
-                if (!error.response || error.response.data.errorCode !== 'USER_ALREADY_EXISTS') {
-                    console.error('Error fetching user data:', error);
-                }
-            }
-        };
-
-        fetchUser();
-    }, [id, authenticated]);
 
     return (
         <Router>
