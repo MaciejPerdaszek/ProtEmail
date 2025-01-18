@@ -38,11 +38,19 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
 
     @Override
     public PhishingScanResult scanEmail(String sender, String subject, String content, List<String> urls) {
+        log.info("Scanning email from: {} with content: {}", sender, content);
         List<String> threats = new ArrayList<>();
+        List<String> scanErrors = new ArrayList<>();
         int riskScore = 0;
 
         try {
-            float probability = checkEmailContent(content);
+            float probability;
+            if (subject.isEmpty()) {
+                probability = checkEmailContent(content);
+            } else {
+                probability = checkEmailContent(subject + " " + content);
+            }
+
             if (probability > 0.9) {
                 threats.add("Very high probability of phishing or spam content");
                 riskScore += 30;
@@ -55,10 +63,12 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
             } else if (probability > 0.4) {
                 threats.add("Low probability of phishing or spam content");
                 riskScore += 5;
+            } else if (probability == -1) {
+                threats.add("AI model check failed");
             }
-        } catch (Exception e) {
+        } catch (AiModelException e) {
             log.error("AI model check failed", e);
-            throw new AiModelException("Failed to analyze email content", e);
+            threats.add("AI content analysis failed: " + e.getMessage());
         }
 
         for (String url : urls) {
@@ -67,9 +77,9 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
                     threats.add("URL flagged by Google Safe Browsing: " + url);
                     riskScore += 30;
                 }
-            } catch (Exception e) {
+            } catch (SafeBrowsingApiException e) {
                 log.error("Safe Browsing API check failed for URL: {}", url, e);
-                throw new SafeBrowsingApiException("Failed to check URL with Safe Browsing API: " + url, e);
+                scanErrors.add("Safe Browsing check failed for URL: " + url);
             }
 
             try {
@@ -77,9 +87,9 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
                     threats.add("URL flagged by URLScan.io: " + url);
                     riskScore += 30;
                 }
-            } catch (Exception e) {
+            } catch (UrlScanApiException e) {
                 log.error("URLScan.io check failed for URL: {}", url, e);
-                throw new UrlScanApiException("Failed to check URL with URLScan.io: " + url, e);
+                threats.add("URLScan check failed for URL: " + url);
             }
         }
 
@@ -159,7 +169,7 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
             JsonObject submitJsonResponse = parseJsonResponse(submitResponse.body());
             String resultUrl = submitJsonResponse.get("api").getAsString();
 
-            Thread.sleep(20000);
+            Thread.sleep(11000);
 
             HttpRequest resultRequest = HttpRequest.newBuilder()
                     .uri(URI.create(resultUrl))
@@ -192,8 +202,7 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
     private float checkEmailContent(String content) {
         try {
             log.info("Checking email content with AI model");
-            String requestBody = String.format("{\"email_text\": \"%s\"}",
-                    content.replace("\n", " ").replace("\r", " "));
+            String requestBody = String.format("{\"email_text\": \"%s\"}", content);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(URLSCAN_API_URL))
@@ -204,7 +213,7 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                throw new AiModelException("AI model request failed with status: " + response.statusCode());
+                return -1;
             }
 
             JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();

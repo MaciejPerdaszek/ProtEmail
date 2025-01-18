@@ -1,5 +1,6 @@
 package com.example.api.service;
 
+import com.example.api.dto.ThreatNotification;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +19,3 @@ public class WebSocketNotificationService {
         messagingTemplate.convertAndSend("/topic/emails/" + email, notification);
     }
 }
-
-record ThreatNotification(
-        String threatLevel
-) {}

@@ -1,9 +1,6 @@
 package com.example.api.service;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import com.example.api.dto.EmailContent;
@@ -11,15 +8,15 @@ import com.example.api.model.PhishingScanResult;
 import com.example.api.model.ScanLog;
 import com.example.api.repository.MailboxRepository;
 import com.example.api.repository.ScanLogRepository;
+import org.nibor.autolink.*;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
 public class MessageExtractorServiceImpl implements MessageExtractorService {
-
-    private static final String URL_REGEX = "(?i)\\b((?:https?://|www\\d{0,3}[.]|[a-z0-9.\\-]+[.][a-z]{2,4}/)(?:[^\\s()<>]+|\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\))+(?:\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]{};:'\".,<>?«»“”‘’]))";
 
     private final ScanLogRepository scanLogRepository;
     private final MailboxRepository mailboxRepository;
@@ -39,18 +36,13 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
     public void performPhishingScan(EmailContent emailContent) {
         ScanLog scanLog = null;
         try {
-            log.info("Email content details:");
-            log.info("From: {}", emailContent.from() != null ? Arrays.toString(emailContent.from()) : "null");
-            log.info("Subject: {}", emailContent.subject());
-            log.info("Content object: {}", emailContent.content());
-            log.info("Content class: {}", emailContent.content() != null ? emailContent.content().getClass().getName() : "null");
-
-            List<String> urls = extractUrls(emailContent.content());
-            log.info("Performing phishing scan for email from: {} subject: {}", extractSender(emailContent), emailContent.subject());
+            List<String> urls = extractUrls(emailContent.subject() + " " + emailContent.content());
+            String cleanHtml = emailContent.subject() + " " + cleanHtml(emailContent.content());
+            log.info("Content object: {}", cleanHtml);
 
             scanLog = createScanLog(emailContent);
 
-            PhishingScanResult scanResult = phishingScannerService.scanEmail(extractSender(emailContent), emailContent.subject(), emailContent.content(), urls);
+            PhishingScanResult scanResult = phishingScannerService.scanEmail(extractSender(emailContent), emailContent.subject(), cleanHtml, urls);
 
             processScanResults(scanLog, scanResult);
 
@@ -65,23 +57,31 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
     }
 
     private List<String> extractUrls(String content) {
-        List<String> urls = new ArrayList<>();
-        Pattern pattern = Pattern.compile(URL_REGEX);
-        Matcher matcher = pattern.matcher(content);
-
-        while (matcher.find()) {
-            String url = matcher.group();
-            urls.add(url);
-
+        LinkExtractor linkExtractor = LinkExtractor.builder()
+                .linkTypes(EnumSet.of(LinkType.URL)) // limit to URLs
+                .build();
+        List<String> links = new ArrayList<>();
+        for (var span : linkExtractor.extractLinks(content)) {
+            var link = content.substring(span.getBeginIndex(), span.getEndIndex());
+            links.add(link);
         }
-        log.info("Extracted URLs: {}", urls);
-        return urls;
+
+        Jsoup.parse(content).select("a[href]").forEach(element -> {
+            links.add(element.attr("href"));
+        });
+
+        log.info("Extracted URLs: {}", links);
+        return links;
     }
 
     private ScanLog createScanLog(EmailContent emailContent) {
         ScanLog scanLog = new ScanLog();
         scanLog.setSender(extractSender(emailContent));
-        scanLog.setSubject(emailContent.subject());
+        if (emailContent.subject() == null || emailContent.subject().isEmpty()) {
+            scanLog.setSubject("No subject");
+        } else {
+            scanLog.setSubject(emailContent.subject());
+        }
         scanLog.setScanDate(new Date());
         scanLog.setMailbox(mailboxRepository.findByEmail(emailContent.username())
                 .orElseThrow(() -> new RuntimeException("Mailbox not found: " + emailContent.username())));
@@ -108,6 +108,15 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
                     savedLog
             );
         }
+    }
+
+    private String cleanHtml(String content) {
+        content = Jsoup.parse(content).text();
+        content = content.replaceAll("<\\s+", "<")
+                .replaceAll("\\s+>", ">")
+                .replaceAll("\\s+/\\s+", "/")
+                .replaceAll("\\s+/>", "/>");
+        return Jsoup.parse(content).text();
     }
 
     private void handleAbortScan(ScanLog scanLog) {

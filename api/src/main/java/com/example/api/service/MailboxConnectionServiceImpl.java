@@ -138,7 +138,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
                             log.warn("Unable to add message {} to phishing scan queue - queue might be full", messageId);
                         }
                     }
-                } catch (MessagingException | IOException e) {
+                } catch (MessagingException e) {
                     log.error("Error processing message: {}", e.getMessage());
                 }
             }
