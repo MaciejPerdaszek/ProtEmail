@@ -12,8 +12,8 @@ export const AuthService = {
         return response.data;
     },
 
-    updateEmail: async (newEmail) => {
-        const response = await axiosInstance.post('/auth/change-email', {newEmail});
+    updatePassword: async () => {
+        const response = await axiosInstance.post('/auth/change-password');
         return response.data;
     }
 }

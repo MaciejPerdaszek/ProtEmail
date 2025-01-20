@@ -1,10 +1,5 @@
 package com.example.api.controller;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import com.example.api.dto.AuthRequest;
-import com.example.api.dto.AuthResponse;
 import com.example.api.dto.LogoutResponse;
 import com.example.api.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,33 +44,16 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/change-email")
-    public ResponseEntity<AuthResponse> changeEmail(@AuthenticationPrincipal OAuth2User user,
-                                                    @RequestBody AuthRequest request) {
-        String newEmail = request.newEmail();
-        if (newEmail == null || newEmail.isEmpty()) {
-            return ResponseEntity.badRequest()
-                    .body(new AuthResponse(false, "Email is required", null));
+    @PostMapping("/change-password")
+    public ResponseEntity<?> requestPasswordChange(@AuthenticationPrincipal OAuth2User user) {
+        try {
+            authService.updatePassword(user.getAttribute("sub") ,user.getAttribute("email"));
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("Failed to initiate password change for user: {}", user.getAttribute("email"), e);
+            return ResponseEntity.internalServerError().build();
         }
-
-        String userId = user.getAttribute("sub");
-        if (userId == null) {
-            return ResponseEntity.badRequest()
-                    .body(new AuthResponse(false, "User ID not found", null));
-        }
-        boolean success = authService.updateEmail(userId, newEmail);
-
-        if (success) {
-            return ResponseEntity.ok()
-                    .body(new AuthResponse(true, "Email updated successfully. " +
-                            "Please check your inbox for verification.", Optional.of(true)));
-        } else {
-            return ResponseEntity.badRequest()
-                    .body(new AuthResponse(false, "Failed to update email", null));
-        }
-
     }
-
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest request,
@@ -84,10 +62,7 @@ public class AuthController {
         String logoutUrl = this.registration.getProviderDetails()
                 .getConfigurationMetadata().get("end_session_endpoint").toString();
 
-        Map<String, String> logoutDetails = new HashMap<>();
-        logoutDetails.put("logoutUrl", logoutUrl);
-        logoutDetails.put("idToken", idToken.getTokenValue());
         request.getSession(false).invalidate();
-        return ResponseEntity.ok().body(logoutDetails);
+        return ResponseEntity.ok().body(new LogoutResponse(logoutUrl, idToken.getTokenValue()));
     }
 }

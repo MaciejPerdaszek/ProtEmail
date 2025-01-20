@@ -42,7 +42,6 @@ export function NavBar({authenticated}) {
                                 <Link to="/dashboard">Dashboard</Link>
                                 <Link to="/scanlog">Scan logs</Link>
                                 <Link to="/profile">Profile</Link>
-                                <Link to="/settings">Settings</Link>
                             </>
                         )}
                     </Nav>

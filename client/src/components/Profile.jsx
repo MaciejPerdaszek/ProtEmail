@@ -1,42 +1,43 @@
 import '../stylings/Profile.css';
 import {useState} from "react";
-import {Button, Card, CardBody, CardTitle, Col, Container, Form, FormGroup, Input, Label, Row} from "reactstrap";
+import {Button, Card, CardBody, CardTitle, Col, Container, Row} from "reactstrap";
 import {AuthService} from "../api/AuthService";
 import {toast} from "react-toastify";
 import {useScanningStore} from "../store/scannigStore.js";
+import {ConfirmationPopup} from './ConfirmationPopup';
 
 export function Profile({user}) {
-
-    const [newEmail, setNewEmail] = useState("");
+    const [isPopupOpen, setIsPopupOpen] = useState(false);
     const {disconnectAllMailboxes} = useScanningStore();
+    const isExternalProvider = user.sub.includes('google');
 
-    const handleEmailInputChange = (e) => {
-        setNewEmail(e.target.value);
+    const closePopup = () => setIsPopupOpen(false);
+    const openPopup = () => setIsPopupOpen(true);
+
+    const handleLogout = async () => {
+        try {
+            disconnectAllMailboxes();
+            const logoutData = await AuthService.logout();
+
+            window.location.href = `${logoutData.logoutUrl}?id_token_hint=${logoutData.idToken}`
+                + `&post_logout_redirect_uri=${window.location.origin}`;
+
+        } catch (logoutError) {
+            console.error("Logout failed:", logoutError);
+        }
     };
 
-    const handleEmailChange = async (e) => {
-        e.preventDefault();
-
+    const handlePasswordChange = async () => {
         try {
-            const response = await AuthService.updateEmail(newEmail);
+            await AuthService.updatePassword();
+            toast.success("Password change request sent. Please check your email.");
+            closePopup();
 
-            setNewEmail('');
+            toast.info("You will be logged out in 5 seconds...");
+            setTimeout(handleLogout, 5000);
 
-            if (response.success && response.requireRelogin) {
-                toast.success("Email changed successfully. Please log in again.");
-                try {
-                    disconnectAllMailboxes();
-                    const logoutData = await AuthService.logout();
-
-
-                    window.location.href = `${logoutData.logoutUrl}?id_token_hint=${logoutData.idToken}`
-                        + `&post_logout_redirect_uri=${window.location.origin}`;
-                } catch (logoutError) {
-                    console.error("Logout failed:", logoutError);
-                }
-            }
         } catch (error) {
-            toast.error("Failed to change email. Please try again.");
+            toast.error("Failed to initiate password change. Please try again.");
         }
     };
 
@@ -46,39 +47,53 @@ export function Profile({user}) {
                 <Col>
                     <Card className="profile-card">
                         <CardBody>
-                            <CardTitle tag="h1" className="profile-title">
-                                Profile
+                            <CardTitle tag="h1" className="profile-title mb-4">
+                                Profile Information
                             </CardTitle>
-                            <p className="text-center profile-text">
-                                Welcome, {user.name}!
-                            </p>
-                            <p className="text-center profile-text">
-                                Email: {user.email}
-                            </p>
 
-                            <Form onSubmit={handleEmailChange}>
-                                <FormGroup>
-                                    <Label for="new-email" className="profile-label">
-                                        New Email
-                                    </Label>
-                                    <Input
-                                        type="email"
-                                        id="new-email"
-                                        name="new-email"
-                                        value={newEmail}
-                                        onChange={handleEmailInputChange}
-                                        placeholder="Enter new email"
-                                        className="profile-input"
-                                        required
+                            <Container className="profile-info-section">
+                                <Container className="user-avatar mb-4">
+                                    <img
+                                        src={user.picture}
+                                        alt="Profile"
+                                        className="rounded-circle"
+                                        style={{ width: '120px', height: '120px' }}
                                     />
-                                </FormGroup>
-                                <Button
-                                    type="submit"
-                                    className="profile-button"
-                                >
-                                    Change Email
-                                </Button>
-                            </Form>
+                                </Container>
+
+                                <Container className="info-grid">
+                                    <Container className="info-item">
+                                        <Container className="info-content">
+                                            <p><strong>Name:</strong> {user.name}</p>
+                                            <p><strong>Nickname:</strong> {user.nickname}</p>
+                                            <p><strong>Email:</strong> {user.email}</p>
+                                            <p><strong>Email Verified:</strong>
+                                                <span className={user.email_verified ? 'text-success' : 'text-danger'}>
+                                                    {user.email_verified ? ' Yes' : ' No'}
+                                                </span>
+                                            </p>
+                                        </Container>
+                                    </Container>
+                                </Container>
+
+                                {!isExternalProvider && (
+                                    <Container className="mt-4">
+                                        <Button
+                                            onClick={openPopup}
+                                            className="profile-button"
+                                        >
+                                            Change Password
+                                        </Button>
+                                    </Container>
+                                )}
+                            </Container>
+
+                            <ConfirmationPopup
+                                isOpen={isPopupOpen}
+                                onClose={closePopup}
+                                onConfirm={handlePasswordChange}
+                                message="Are you sure you want to change your password? This will require you to log out."
+                            />
                         </CardBody>
                     </Card>
                 </Col>

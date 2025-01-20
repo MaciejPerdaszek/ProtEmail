@@ -48,7 +48,10 @@ public class SecurityConfig {
                         .jwt(jwt -> jwt.decoder(jwtDecoder()))
                 )
                 .addFilterAfter(new CookieCsrfFilter(), BasicAuthenticationFilter.class)
-                .oauth2Login(withDefaults());
+                .oauth2Login(oauth2 -> oauth2
+                        .defaultSuccessUrl("http://localhost:5173", true)
+                        .failureUrl("http://localhost:5173/verify")
+                );
         return http.build();
     }
 

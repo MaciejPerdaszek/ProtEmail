@@ -3,8 +3,8 @@ import {NavBar} from "./components/NavBar";
 import {HomePage} from "./components/HomePage";
 import {DashBoard} from "./components/DashBoard";
 import {ScanLog} from "./components/Scanlog.jsx";
-import {SettingsCom} from "./components/Settings.jsx";
 import {Mailbox} from "./components/Mailbox.jsx";
+import {VerifyEmail} from "./components/VerifyEmail.jsx";
 import React, {useEffect, useState} from "react";
 import {BrowserRouter as Router, Routes, Route, Navigate} from "react-router-dom";
 import {ToastContainer} from "react-toastify";
@@ -58,16 +58,14 @@ function App() {
                     }
                 />
                 <Route
-                    path="/settings"
-                    element={
-                        authenticated ? <SettingsCom /> : <Navigate to="/" replace />
-                    }
-                />
-                <Route
                     path="/mailbox/:email"
                     element={
                         authenticated ? <Mailbox /> : <Navigate to="/" replace />
                     }
+                />
+                <Route
+                    path="/verify"
+                    element={<VerifyEmail />}
                 />
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
