@@ -14,12 +14,13 @@ import org.jsoup.nodes.Document;
 @Slf4j
 public record EmailContent(
         String username,
+        String currentUserId,
         String messageId,
         String content,
         String subject,
         Address[] from
 ) {
-    public static EmailContent fromMessage(Message message, String username, String messageId) {
+    public static EmailContent fromMessage(Message message, String username, String currentUserId, String messageId) {
         try {
             if (message == null) {
                 throw new IllegalArgumentException("Message cannot be null");
@@ -30,6 +31,7 @@ public record EmailContent(
 
             return new EmailContent(
                     username,
+                    currentUserId,
                     messageId,
                     extractedContent,
                     message.getSubject(),

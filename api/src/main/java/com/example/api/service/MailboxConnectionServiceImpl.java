@@ -137,6 +137,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
                         EmailContent emailContent = EmailContent.fromMessage(
                                 message,
                                 config.username(),
+                                currentUserId,
                                 messageId
                         );
 

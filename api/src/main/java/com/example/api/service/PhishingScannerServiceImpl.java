@@ -53,13 +53,13 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
             if (probability > 0.9) {
                 threats.add("Very high probability of phishing or spam content");
                 riskScore += 30;
-            } else if (probability > 0.70) {
+            } else if (probability > 0.7) {
                 threats.add("High probability of phishing or spam content");
                 riskScore += 20;
             } else if (probability > 0.5) {
                 threats.add("Medium probability of phishing or spam content");
                 riskScore += 10;
-            } else if (probability > 0.4) {
+            } else if (probability > 0.3) {
                 threats.add("Low probability of phishing or spam content");
                 riskScore += 5;
             } else if (probability == -1) {

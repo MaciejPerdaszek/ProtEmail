@@ -83,7 +83,7 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
             scanLog.setSubject(emailContent.subject());
         }
         scanLog.setScanDate(new Date());
-        scanLog.setMailbox(mailboxRepository.findByEmail(emailContent.username())
+        scanLog.setMailbox(mailboxRepository.findByEmailAndUserId(emailContent.username(), emailContent.currentUserId())
                 .orElseThrow(() -> new RuntimeException("Mailbox not found: " + emailContent.username())));
         scanLog.setThreatLevel("Pending");
         scanLog.setComment("URL scan in progress");

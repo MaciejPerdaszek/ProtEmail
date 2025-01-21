@@ -10,8 +10,6 @@ public interface MailboxRepository extends JpaRepository<Mailbox, Long> {
 
     List<Mailbox> findByUserId(String userId);
 
-    Optional<Mailbox> findByEmail(String email);
-
     @Transactional
     void deleteByUserId(String userId);
 
