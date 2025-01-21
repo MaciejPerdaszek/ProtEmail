@@ -8,11 +8,15 @@ import lombok.Data;
 
 @Data
 @Entity
-@Table(name = "mailboxes")
+@Table(name = "mailboxes", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"email", "userId"})
+})
 public class Mailbox {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     private String email;
 
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)

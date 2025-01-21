@@ -7,7 +7,7 @@ public interface MailboxConnectionService {
 
     Map<String, Boolean> getMailboxConnectionStates();
 
-    void startMonitoring(EmailConfigRequest config);
+    void startMonitoring(EmailConfigRequest config, String currentUserId);
 
     void stopMailboxMonitoring(String email);
 

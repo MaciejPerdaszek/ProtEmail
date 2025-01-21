@@ -61,7 +61,8 @@ export function DashBoard({user}) {
                         protocol: "imap",
                         host: mailbox.type,
                         port: "993",
-                        username: mailbox.email
+                        username: mailbox.email,
+                        userId: user.sub
                     };
                     initializeWebSocket(mailbox.email, config);
                 }
@@ -114,7 +115,7 @@ export function DashBoard({user}) {
             setNewMailbox(INITIAL_FORM_STATE);
             toast('Mailbox added successfully!', {type: 'success'});
         } catch (error) {
-            toast('Error adding mailbox. Please try again.', {type: 'error'});
+            toast('Error adding mailbox: ' + error.response.data.message , {type: 'error'});
         } finally {
             setIsLoading(false);
         }

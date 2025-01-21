@@ -67,7 +67,7 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
             }
         } catch (AiModelException e) {
             log.error("AI model check failed", e);
-            threats.add("AI content analysis failed: " + e.getMessage());
+            threats.add("AI content analysis failed");
         }
 
         for (String url : urls) {

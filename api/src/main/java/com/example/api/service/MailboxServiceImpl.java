@@ -1,6 +1,8 @@
 package com.example.api.service;
 
 import java.util.List;
+import com.example.api.exception.InvalidMailboxException;
+import com.example.api.exception.MailboxAlreadyExistsException;
 import com.example.api.model.Mailbox;
 import com.example.api.repository.MailboxRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -24,8 +26,17 @@ public class MailboxServiceImpl implements MailboxService {
     }
 
     @Override
-    public Mailbox getMailboxById(long theId) {
-        return mailboxRepository.findById(theId).orElseThrow(() -> new RuntimeException("Did not find mailbox id - " + theId));
+    public Mailbox addMailbox(Mailbox mailbox, String userId) {
+        if (mailbox.getId() != null) {
+            throw new InvalidMailboxException("New mailbox should not have an ID");
+        }
+
+        if (mailboxRepository.existsByEmailAndUserId(mailbox.getEmail(), userId)) {
+            throw new MailboxAlreadyExistsException("Email " + mailbox.getEmail() + " already exists for this user");
+        }
+
+        mailbox.setUserId(userId);
+        return mailboxRepository.save(mailbox);
     }
 
     @Override
@@ -50,17 +61,6 @@ public class MailboxServiceImpl implements MailboxService {
         }
 
         return mailboxRepository.save(existingMailbox);
-    }
-
-    public Mailbox addMailbox(Mailbox mailbox, String userId) {
-
-        if (mailbox.getId() != null) {
-            throw new IllegalArgumentException("New mailbox should not have an ID");
-        }
-
-        mailbox.setUserId(userId);
-
-        return mailboxRepository.save(mailbox);
     }
 
     @Override

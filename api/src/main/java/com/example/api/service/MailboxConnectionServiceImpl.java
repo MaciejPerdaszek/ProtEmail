@@ -87,21 +87,19 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
         return props;
     }
 
-    private void pollMailbox(EmailConfigRequest config) {
+    private void pollMailbox(EmailConfigRequest config, String currentUserId) {
         Store store = null;
         Folder inbox = null;
         try {
             log.info("Starting polling cycle for {}", config.username());
 
-            Mailbox mailbox = mailboxRepository.findByEmail(config.username())
-                    .orElseThrow(() -> new RuntimeException("Mailbox not found"));
+            Mailbox mailbox = mailboxRepository.findByEmailAndUserId(config.username(), currentUserId)
+                    .orElseThrow(() -> new RuntimeException("Mailbox not found for this user"));
 
             Session session = Session.getInstance(createMailProperties());
             //session.setDebug(true);
             store = session.getStore(config.protocol());
             store.connect(config.host(), config.username(), mailbox.getPassword());
-
-            //first time connection success
 
             if (initialConnectionNotified.add(config.username())) {
                 notificationService.notifyConnectionSuccess(config.username());
@@ -173,7 +171,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
     }
 
     @Override
-    public void startMonitoring(EmailConfigRequest config) {
+    public void startMonitoring(EmailConfigRequest config, String currentUserId) {
         if (pollingTasks.containsKey(config.username())) {
             log.info("Mailbox {} is already being monitored", config.username());
             return;
@@ -185,7 +183,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
         ScheduledFuture<?> pollingTask = scheduledExecutor.scheduleAtFixedRate(
                 () -> {
                     try {
-                        pollMailbox(config);
+                        pollMailbox(config, currentUserId);
                     } catch (Exception e) {
                         log.error("Error during polling: {}", e.getMessage());
                         stopMailboxMonitoring(config.username());

@@ -12,13 +12,19 @@ import lombok.Data;
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 @Table(name = "scan_logs")
 public class ScanLog {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     private String sender;
+
     private String subject;
+
     private Date scanDate;
+
     private String threatLevel;
+
     private String comment;
 
     @ManyToOne

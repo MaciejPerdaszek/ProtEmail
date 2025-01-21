@@ -1,7 +1,6 @@
 package com.example.api.service;
 
 import com.example.api.exception.AuthException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Autowired;

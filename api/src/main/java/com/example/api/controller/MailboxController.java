@@ -22,12 +22,6 @@ public class MailboxController {
         return ResponseEntity.ok(mailboxes);
     }
 
-    @GetMapping("/user/{mailboxId}")
-    public ResponseEntity<Mailbox> getMailbox(@PathVariable long mailboxId) {
-        Mailbox mailbox = mailboxService.getMailboxById(mailboxId);
-        return ResponseEntity.ok(mailbox);
-    }
-
     @PostMapping("/{userId}")
     public ResponseEntity<Mailbox> addMailbox(@RequestBody Mailbox mailbox, @PathVariable String userId) {
         Mailbox savedMailbox = mailboxService.addMailbox(mailbox, userId);

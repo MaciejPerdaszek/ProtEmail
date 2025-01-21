@@ -8,10 +8,4 @@ import org.springframework.data.domain.Pageable;
 public interface ScanLogService {
 
     Page<ScanLog> getScanLogs(List<Long> mailboxIds, Pageable pageable);
-
-    ScanLog getScanLogById(long theId);
-
-    ScanLog saveScanLog(ScanLog theScanLog);
-
-    void deleteScanLog(long theId);
 }

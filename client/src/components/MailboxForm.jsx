@@ -52,7 +52,6 @@ export function MailboxForm({formData, onSubmit, onChange, buttonText, setShowEd
                     <option value="wp">WP</option>
                     <option value="onet">Onet</option>
                     <option value="gmail">Gmail</option>
-                    <option value="outlook">Outlook</option>
                 </Input>
             </FormGroup>
             <Button type="submit" className="form-button">

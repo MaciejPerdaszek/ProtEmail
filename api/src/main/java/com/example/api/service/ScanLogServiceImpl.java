@@ -20,19 +20,4 @@ public class ScanLogServiceImpl implements ScanLogService {
     public Page<ScanLog> getScanLogs(List<Long> mailboxIds, Pageable pageable) {
         return scanLogRepository.findByMailboxIdIn(mailboxIds, pageable);
     }
-
-    @Override
-    public ScanLog getScanLogById(long theId) {
-        return scanLogRepository.findById(theId).orElseThrow(() -> new RuntimeException("Did not find scan log id - " + theId));
-    }
-
-    @Override
-    public ScanLog saveScanLog(ScanLog theScanLog) {
-        return scanLogRepository.save(theScanLog);
-    }
-
-    @Override
-    public void deleteScanLog(long theId) {
-        scanLogRepository.deleteById(theId);
-    }
 }

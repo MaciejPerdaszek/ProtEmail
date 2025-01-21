@@ -35,22 +35,4 @@ public class ScanLogController {
 
         return ResponseEntity.ok(logs);
     }
-
-    @GetMapping("/{scanLogId}")
-    public ResponseEntity<ScanLog> getScanLog(@PathVariable long scanLogId) {
-        ScanLog scanLog = scanLogService.getScanLogById(scanLogId);
-        return ResponseEntity.ok(scanLog);
-    }
-
-    @PostMapping("/")
-    public ResponseEntity<ScanLog> saveScanLog(@RequestBody ScanLog scanLog) {
-        ScanLog savedScanLog = scanLogService.saveScanLog(scanLog);
-        return ResponseEntity.ok(savedScanLog);
-    }
-
-    @DeleteMapping("/{scanLogId}")
-    public ResponseEntity<Void> deleteScanLog(@PathVariable long scanLogId) {
-        scanLogService.deleteScanLog(scanLogId);
-        return ResponseEntity.noContent().build();
-    }
 }
