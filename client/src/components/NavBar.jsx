@@ -4,7 +4,7 @@ import {Link} from "react-router-dom";
 import {AuthService} from '../api/AuthService.js';
 import {useScanningStore} from "../store/scannigStore.js";
 
-export function NavBar({authenticated}) {
+export function NavBar({authenticated, user}) {
 
     const {disconnectAllMailboxes} = useScanningStore();
 
@@ -19,7 +19,7 @@ export function NavBar({authenticated}) {
 
     const logout = async () => {
         try {
-            disconnectAllMailboxes();
+            disconnectAllMailboxes(user.sub);
             const data = await AuthService.logout();
 
             window.location.href = `${data.logoutUrl}?id_token_hint=${data.idToken}`

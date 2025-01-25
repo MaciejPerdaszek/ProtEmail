@@ -41,7 +41,7 @@ export function Mailbox({ user }) {
             await initializeWebSocket(email, mailboxConfig);
         } catch (error) {
             console.error('Error during connection setup:', error);
-            disconnectMailbox(email);
+            disconnectMailbox(email, user.sub);
         }
 
         setTimeout(() => {
@@ -53,7 +53,7 @@ export function Mailbox({ user }) {
         if (isButtonDisabled) return;
 
         setIsButtonDisabled(true);
-        disconnectMailbox(email);
+        disconnectMailbox(email, user.sub);
 
         setTimeout(() => {
             setIsButtonDisabled(false);

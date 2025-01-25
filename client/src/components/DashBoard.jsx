@@ -125,7 +125,7 @@ export function DashBoard({user}) {
         setIsLoading(true);
         try {
             if (scannedMailboxes[originalEmail]?.isScanning) {
-                disconnectMailbox(originalEmail);
+                disconnectMailbox(originalEmail, user.sub);
             }
 
             await MailboxService.updateMailbox(
@@ -150,7 +150,7 @@ export function DashBoard({user}) {
         setIsLoading(true);
         try {
             if (scannedMailboxes[selectedMailbox.email]?.isScanning) {
-                disconnectMailbox(selectedMailbox.email);
+                disconnectMailbox(selectedMailbox.email, user.sub);
             }
 
             await MailboxService.deleteMailbox(user.sub, selectedMailbox.id);
@@ -246,7 +246,7 @@ export function DashBoard({user}) {
                                 <p className="empty-message">No mailboxes added yet.</p>
                             )}
                         </Container>
-                        <Button type="submit" className="form-button" onClick={disconnectAllMailboxes}>Stop scanning mailboxes</Button>
+                        <Button type="submit" className="form-button" onClick={() => disconnectAllMailboxes(user.sub)}>Stop scanning mailboxes</Button>
                     </Container>
                 </Container>
             </Container>

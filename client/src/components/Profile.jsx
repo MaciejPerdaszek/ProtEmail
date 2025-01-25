@@ -16,7 +16,7 @@ export function Profile({user}) {
 
     const handleLogout = async () => {
         try {
-            disconnectAllMailboxes();
+            disconnectAllMailboxes(user.sub);
             const logoutData = await AuthService.logout();
 
             window.location.href = `${logoutData.logoutUrl}?id_token_hint=${logoutData.idToken}`

@@ -1,5 +1,6 @@
 package com.example.api.controller;
 
+import java.nio.file.AccessDeniedException;
 import com.example.api.dto.ErrorResponse;
 import com.example.api.exception.AuthException;
 import com.example.api.exception.EmailsFetchingException;
@@ -39,5 +40,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMailboxAlreadyExistsException(MailboxAlreadyExistsException ex) {
         ErrorResponse response = new ErrorResponse(ex.getMessage(), "MAILBOX_ALREADY_EXISTS_ERROR", 409);
         return ResponseEntity.status(409).body(response);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseBody
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex) {
+        ErrorResponse response = new ErrorResponse(ex.getMessage(), "ACCESS_DENIED_ERROR", 403);
+        return ResponseEntity.status(403).body(response);
     }
 }

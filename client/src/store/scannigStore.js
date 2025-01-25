@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { Client } from '@stomp/stompjs';
+import {create} from 'zustand';
+import {persist} from 'zustand/middleware';
+import {Client} from '@stomp/stompjs';
 import {toast} from "react-toastify";
 import {MailboxConnectionService} from "../api/MailboxConnectionService.js";
 
@@ -11,16 +11,11 @@ const useScanningStore = create(
             stompClients: {},
 
             initializeWebSocket: (email, mailboxConfig) => {
-
-                const token = localStorage.getItem('token');
                 const store = get();
                 if (!store.stompClients[email]) {
                     const client = new Client({
                         brokerURL: 'ws://localhost:8080/gs-guide-websocket',
                         reconnectDelay: 5000,
-                        connectHeaders: {
-                            'Authorization': `Bearer ${token}`
-                        },
                         debug: (str) => console.log('STOMP debug: ' + str),
                         onConnect: () => {
                             console.log("WebSocket connected for", email);
@@ -46,7 +41,7 @@ const useScanningStore = create(
                                         }));
                                     } else if (response.error === "ERROR") {
                                         toast(`Failed to connect to ${email}, Invalid credentials`, {type: 'error'});
-                                        store.disconnectMailbox(email);
+                                        store.disconnectMailbox(email, mailboxConfig.userId);
                                     }
                                 } catch (error) {
                                     console.error("Error parsing message:", error);
@@ -136,13 +131,16 @@ const useScanningStore = create(
                 });
             },
 
-            disconnectMailbox: (email) => {
+            disconnectMailbox: (email, userId) => {
                 const client = get().stompClients[email];
                 if (client) {
                     if (client.connected) {
                         client.publish({
                             destination: '/api/disconnect',
-                            body: email
+                            body: JSON.stringify({
+                                email: email,
+                                userId: userId
+                            })
                         });
                         client.deactivate();
                     }
@@ -163,14 +161,17 @@ const useScanningStore = create(
                 }
             },
 
-            disconnectAllMailboxes: () => {
+            disconnectAllMailboxes: (userId) => {
                 const clients = get().stompClients;
                 Object.keys(clients).forEach((email) => {
                     const client = clients[email];
                     if (client.connected) {
                         client.publish({
                             destination: '/api/disconnect',
-                            body: email
+                            body: JSON.stringify({
+                                email: email,
+                                userId: userId
+                            })
                         });
                         client.deactivate();
                     }
@@ -190,8 +191,7 @@ const useScanningStore = create(
 
             synchronizeState: async (user) => {
                 try {
-                    const response = await MailboxConnectionService.fetchMailboxConnections(user.sub);
-                    const serverStates = await response.json();
+                    const serverStates = await MailboxConnectionService.fetchMailboxConnections(user.sub);
 
                     set((state) => ({
                         scannedMailboxes: Object.keys(serverStates).reduce((acc, email) => ({
