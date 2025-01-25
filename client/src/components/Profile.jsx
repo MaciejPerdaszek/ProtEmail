@@ -54,10 +54,11 @@ export function Profile({user}) {
                             <Container className="profile-info-section">
                                 <Container className="user-avatar mb-4">
                                     <img
-                                        src={user.picture}
+                                        src={user.picture || '/default.png'}
                                         alt="Profile"
                                         className="rounded-circle"
                                         style={{ width: '120px', height: '120px' }}
+                                        onError={(e) => e.target.src = '/default.png'}
                                     />
                                 </Container>
 

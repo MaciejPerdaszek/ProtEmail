@@ -60,7 +60,7 @@ function App() {
                 <Route
                     path="/mailbox/:email"
                     element={
-                        authenticated ? <Mailbox /> : <Navigate to="/" replace />
+                        authenticated ? <Mailbox user={user} /> : <Navigate to="/" replace />
                     }
                 />
                 <Route

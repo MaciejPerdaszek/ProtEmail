@@ -14,7 +14,7 @@ export const MailboxService = {
         await axiosInstance.put(`/mailboxes/${userId}/${mailboxId}`, mailboxData);
     },
 
-    deleteMailbox: async (mailboxId) => {
-        await axiosInstance.delete(`/mailboxes/${mailboxId}`);
+    deleteMailbox: async (userId, mailboxId) => {
+        await axiosInstance.delete(`/mailboxes/${userId}/${mailboxId}`);
     }
 };

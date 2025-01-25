@@ -47,7 +47,14 @@ public class AuthController {
     @PostMapping("/change-password")
     public ResponseEntity<?> requestPasswordChange(@AuthenticationPrincipal OAuth2User user) {
         try {
-            authService.updatePassword(user.getAttribute("sub") ,user.getAttribute("email"));
+            String userId = user.getAttribute("sub");
+            String email = user.getAttribute("email");
+
+            if (userId == null || email == null) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
+            authService.updatePassword(userId, email);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error("Failed to initiate password change for user: {}", user.getAttribute("email"), e);

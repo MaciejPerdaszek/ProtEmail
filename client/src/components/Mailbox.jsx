@@ -5,7 +5,7 @@ import { Mail, Clock, AlertTriangle, Undo } from 'lucide-react';
 import { useScanningStore } from '../store/scannigStore.js';
 import '../stylings/Mailbox.css';
 
-export function Mailbox() {
+export function Mailbox({ user }) {
     const { email } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
@@ -16,7 +16,7 @@ export function Mailbox() {
 
     // Synchronize state on component mount
     useEffect(() => {
-        synchronizeState();
+        synchronizeState(user);
     }, []);
 
     const currentMailboxState = scannedMailboxes[email] || {

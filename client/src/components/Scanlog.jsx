@@ -3,6 +3,7 @@ import {Button, Container, FormGroup, Label, Table} from 'reactstrap';
 import {ChevronLeft, ChevronRight} from 'lucide-react';
 import {ScanLogService} from "../api/ScanLogService.js";
 import {MailboxService} from "../api/MailboxService.js";
+import {useScanningStore} from '../store/scannigStore.js';
 import "../stylings/Scanlog.css";
 
 export function ScanLog({user}) {
@@ -16,12 +17,15 @@ export function ScanLog({user}) {
         totalElements: 0
     });
 
+    const scannedMailboxes = useScanningStore(state => state.scannedMailboxes);
+
     const fetchLogs = async (mailboxIds = null, page = 0, size = pageSize) => {
         try {
             const response = await ScanLogService.fetchScanLogs(
                 mailboxIds,
                 page,
-                size
+                size,
+                user.sub
             );
             setLogs(response.data);
             setPagination({
@@ -87,6 +91,20 @@ export function ScanLog({user}) {
             : [selectedMailbox];
         fetchLogs(ids, 0, newSize);
     };
+
+    useEffect(() => {
+        const currentMailboxIds = selectedMailbox === 'all'
+            ? mailboxes.map(mailbox => mailbox.id)
+            : [selectedMailbox];
+
+        const isAnyMailboxScanning = mailboxes.some(mailbox =>
+            scannedMailboxes[mailbox.email]?.isScanning
+        );
+
+        if (isAnyMailboxScanning) {
+            fetchLogs(currentMailboxIds, pagination.currentPage, pageSize);
+        }
+    }, [scannedMailboxes, selectedMailbox, mailboxes]);
 
     useEffect(() => {
         fetchMailboxes();

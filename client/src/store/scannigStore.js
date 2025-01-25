@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Client } from '@stomp/stompjs';
 import {toast} from "react-toastify";
+import {MailboxConnectionService} from "../api/MailboxConnectionService.js";
 
 const useScanningStore = create(
     persist(
@@ -10,11 +11,16 @@ const useScanningStore = create(
             stompClients: {},
 
             initializeWebSocket: (email, mailboxConfig) => {
+
+                const token = localStorage.getItem('token');
                 const store = get();
                 if (!store.stompClients[email]) {
                     const client = new Client({
                         brokerURL: 'ws://localhost:8080/gs-guide-websocket',
                         reconnectDelay: 5000,
+                        connectHeaders: {
+                            'Authorization': `Bearer ${token}`
+                        },
                         debug: (str) => console.log('STOMP debug: ' + str),
                         onConnect: () => {
                             console.log("WebSocket connected for", email);
@@ -182,9 +188,9 @@ const useScanningStore = create(
                 });
             },
 
-            synchronizeState: async () => {
+            synchronizeState: async (user) => {
                 try {
-                    const response = await fetch('/api/emails/connection-states');
+                    const response = await MailboxConnectionService.fetchMailboxConnections(user.sub);
                     const serverStates = await response.json();
 
                     set((state) => ({

@@ -52,9 +52,8 @@ export function DashBoard({user}) {
 
     useEffect(() => {
         const initialize = async () => {
-            await synchronizeState();
+            await synchronizeState(user);
 
-            // Przywróć połączenia WebSocket dla aktywnych skrzynek
             mailboxes.forEach(mailbox => {
                 if (scannedMailboxes[mailbox.email]?.isScanning) {
                     const config = {
@@ -154,7 +153,7 @@ export function DashBoard({user}) {
                 disconnectMailbox(selectedMailbox.email);
             }
 
-            await MailboxService.deleteMailbox(selectedMailbox.id);
+            await MailboxService.deleteMailbox(user.sub, selectedMailbox.id);
             await fetchMailboxes();
             setActiveDropdown(null);
             toast('Mailbox deleted successfully!', { type: 'success' });

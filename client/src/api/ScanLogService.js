@@ -1,7 +1,7 @@
 import axiosInstance from '../axiosConfig';
 
 export const ScanLogService = {
-    fetchScanLogs: async (mailboxIds = [], page = 0, size = 5) => {
+    fetchScanLogs: async (mailboxIds = [], page = 0, size = 5, userId) => {
         try {
             const params = new URLSearchParams({
                 page: page.toString(),
@@ -12,7 +12,7 @@ export const ScanLogService = {
                 mailboxIds.forEach(id => params.append('mailboxId', id.toString()));
             }
 
-            const url = `/scan-logs?${params.toString()}`;
+            const url = `/scan-logs/${userId}?${params.toString()}`;
             const response = await axiosInstance.get(url);
 
             return {
