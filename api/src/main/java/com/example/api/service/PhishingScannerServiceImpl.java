@@ -22,7 +22,8 @@ import java.util.List;
 public class PhishingScannerServiceImpl implements PhishingScannerService {
     private static final String URLSCAN_SUBMIT_URL = "https://urlscan.io/api/v1/scan/";
     private static final String SAFE_BROWSE_API_URL = "https://safebrowsing.googleapis.com/v4/threatMatches:find";
-    private static final String URLSCAN_API_URL = "http://localhost:8000/analyze-email";
+    private static final String URLSCAN_API_URL = "http://ai:8000/analyze-email";
+    //private static final String URLSCAN_API_URL = "http://localhost:8000/analyze-email";
 
     @Value("${google.safebrowsing.api.key}")
     private String apiKey;

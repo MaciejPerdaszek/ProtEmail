@@ -28,6 +28,8 @@
 	</scm>
 	<properties>
 		<java.version>22</java.version>
+		<maven.compiler.source>22</maven.compiler.source>
+		<maven.compiler.target>22</maven.compiler.target>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -116,6 +118,11 @@
 			<groupId>org.nibor.autolink</groupId>
 			<artifactId>autolink</artifactId>
 			<version>0.11.0</version>
+		</dependency>
+		<dependency>
+			<groupId>io.github.cdimascio</groupId>
+			<artifactId>dotenv-java</artifactId>
+			<version>3.1.0</version>
 		</dependency>
 	</dependencies>
 
