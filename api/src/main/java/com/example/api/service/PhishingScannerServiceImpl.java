@@ -45,7 +45,7 @@ public class PhishingScannerServiceImpl implements PhishingScannerService {
 
         try {
             float probability;
-            if (subject.isEmpty()) {
+            if (subject == null || subject.isEmpty()) {
                 probability = checkEmailContent(content);
             } else {
                 probability = checkEmailContent(subject + " " + content);

@@ -17,7 +17,7 @@ export function ScanLog({user}) {
         totalElements: 0
     });
 
-    const scannedMailboxes = useScanningStore(state => state.scannedMailboxes);
+    const stompClients = useScanningStore(state => state.stompClients);
 
     const fetchLogs = async (mailboxIds = null, page = 0, size = pageSize) => {
         try {
@@ -93,18 +93,33 @@ export function ScanLog({user}) {
     };
 
     useEffect(() => {
-        const currentMailboxIds = selectedMailbox === 'all'
-            ? mailboxes.map(mailbox => mailbox.id)
-            : [selectedMailbox];
+        const subscriptions = Object.entries(stompClients).map(([email, client]) => {
+            if (client && client.connected) {
+                return client.subscribe(`/topic/scanlog/${email}`, (message) => {
+                    try {
+                        const newLog = JSON.parse(message.body);
+                        setLogs(prevLogs => {
+                            const exists = prevLogs.some(log => log.id === newLog.id);
+                            if (exists) {
+                                return prevLogs.map(log =>
+                                    log.id === newLog.id ? newLog : log
+                                );
+                            } else {
+                                return [newLog, ...prevLogs.slice(0, pageSize - 1)];
+                            }
+                        });
+                    } catch (error) {
+                        console.error("Error processing scan log:", error);
+                    }
+                });
+            }
+            return null;
+        }).filter(Boolean);
 
-        const isAnyMailboxScanning = mailboxes.some(mailbox =>
-            scannedMailboxes[mailbox.email]?.isScanning
-        );
-
-        if (isAnyMailboxScanning) {
-            fetchLogs(currentMailboxIds, pagination.currentPage, pageSize);
-        }
-    }, [scannedMailboxes, selectedMailbox, mailboxes]);
+        return () => {
+            subscriptions.forEach(subscription => subscription.unsubscribe());
+        };
+    }, [stompClients, pageSize]);
 
     useEffect(() => {
         fetchMailboxes();

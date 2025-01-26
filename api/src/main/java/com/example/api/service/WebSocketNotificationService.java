@@ -35,4 +35,8 @@ public class WebSocketNotificationService {
 
         messagingTemplate.convertAndSend("/topic/connect/" + email, notification);
     }
+
+    public void sendScanLog(String email, ScanLog scanLog) {
+        messagingTemplate.convertAndSend("/topic/scanlog/" + email, scanLog);
+    }
 }

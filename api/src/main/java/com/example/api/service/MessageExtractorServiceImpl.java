@@ -87,7 +87,10 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
                 .orElseThrow(() -> new RuntimeException("Mailbox not found: " + emailContent.username())));
         scanLog.setThreatLevel("Pending");
         scanLog.setComment("URL scan in progress");
-        return scanLogRepository.save(scanLog);
+
+        ScanLog savedLog = scanLogRepository.save(scanLog);
+        notificationService.sendScanLog(emailContent.username(), savedLog);
+        return savedLog;
     }
 
     private String extractSender(EmailContent emailContent) {
@@ -100,6 +103,7 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
         scanLog.setThreatLevel(scanResult.getRiskLevel());
         scanLog.setComment(String.join("; ", scanResult.getThreats()));
         ScanLog savedLog = scanLogRepository.save(scanLog);
+        notificationService.sendScanLog(scanLog.getMailbox().getEmail(), savedLog);
 
         if (!scanResult.getThreats().isEmpty() ||
                 !"Low".equalsIgnoreCase(scanResult.getRiskLevel())) {
@@ -122,7 +126,8 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
     private void handleAbortScan(ScanLog scanLog) {
         scanLog.setThreatLevel("Error");
         scanLog.setComment("Phishing scan aborted");
-        scanLogRepository.save(scanLog);
+        ScanLog savedLog = scanLogRepository.save(scanLog);
+        notificationService.sendScanLog(scanLog.getMailbox().getEmail(), savedLog);
     }
 }
 
