@@ -6,7 +6,8 @@ export function MailboxList({mailboxes, onEdit, onDelete, onNavigate, activeDrop
     const { scannedMailboxes } = useScanningStore();
 
     const getMailboxStatus = (mailbox) => {
-        const isScanning = scannedMailboxes[mailbox.email]?.isScanning;
+        const mailboxKey = `${mailbox.email}_${mailbox.userId}`;
+        const isScanning = scannedMailboxes[mailboxKey]?.isScanning;
 
         if (isScanning) {
             return '🟢 Scanning...';
@@ -15,8 +16,8 @@ export function MailboxList({mailboxes, onEdit, onDelete, onNavigate, activeDrop
     };
 
     const getStatusClass = (mailbox) => {
-        const isScanning = scannedMailboxes[mailbox.email]?.isScanning;
-
+        const mailboxKey = `${mailbox.email}_${mailbox.userId}`;
+        const isScanning = scannedMailboxes[mailboxKey]?.isScanning;
 
         if (isScanning) return 'scanning';
         return 'disconnected';

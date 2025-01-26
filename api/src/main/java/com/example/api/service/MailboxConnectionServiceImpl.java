@@ -87,13 +87,18 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
         return props;
     }
 
-    private void pollMailbox(EmailConfigRequest config, String currentUserId) {
+    private String getMailboxKey(String email, String userId) {
+        return email + "_" + userId;
+    }
+
+    private void pollMailbox(EmailConfigRequest config) {
         Store store = null;
         Folder inbox = null;
+        String mailboxKey = getMailboxKey(config.username(), config.userId());
         try {
             log.info("Starting polling cycle for {}", config.username());
 
-            Mailbox mailbox = mailboxRepository.findByEmailAndUserId(config.username(), currentUserId)
+            Mailbox mailbox = mailboxRepository.findByEmailAndUserId(config.username(), config.userId())
                     .orElseThrow(() -> new RuntimeException("Mailbox not found for this user"));
 
             Session session = Session.getInstance(createMailProperties());
@@ -101,8 +106,8 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
             store = session.getStore(config.protocol());
             store.connect(config.host(), config.username(), mailbox.getPassword());
 
-            if (initialConnectionNotified.add(config.username())) {
-                notificationService.notifyConnectionSuccess(config.username());
+            if (initialConnectionNotified.add(mailboxKey)) {
+                notificationService.notifyConnectionSuccess(config.username(), config.userId());
             }
 
             inbox = store.getFolder("INBOX");
@@ -137,7 +142,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
                         EmailContent emailContent = EmailContent.fromMessage(
                                 message,
                                 config.username(),
-                                currentUserId,
+                                config.userId(),
                                 messageId
                         );
 
@@ -172,23 +177,26 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
     }
 
     @Override
-    public void startMonitoring(EmailConfigRequest config, String currentUserId) {
-        if (pollingTasks.containsKey(config.username())) {
-            log.info("Mailbox {} is already being monitored", config.username());
+    public void startMonitoring(EmailConfigRequest config) {
+        String mailboxKey = getMailboxKey(config.username(), config.userId());
+
+        if (pollingTasks.containsKey(mailboxKey)) {
+            log.info("Mailbox {} for user {} is already being monitored", config.username(), config.userId());
+            notificationService.notifyConnectionError(config.username(), config.userId(), "ALREADY_CONNECTED");
             return;
         }
 
-        mailboxConfigs.put(config.username(), config);
-        lastCheckTimes.put(config.username(), new Date());
+        mailboxConfigs.put(mailboxKey, config);
+        lastCheckTimes.put(mailboxKey, new Date());
 
         ScheduledFuture<?> pollingTask = scheduledExecutor.scheduleAtFixedRate(
                 () -> {
                     try {
-                        pollMailbox(config, currentUserId);
+                        pollMailbox(config);
                     } catch (Exception e) {
                         log.error("Error during polling: {}", e.getMessage());
-                        stopMailboxMonitoring(config.username());
-                        notificationService.notifyConnectionError(config.username());
+                        stopMailboxMonitoring(config.username(), config.userId());
+                        notificationService.notifyConnectionError(config.username(), config.userId(), "Invalid credentials");
                     }
                 },
                 0,
@@ -196,8 +204,8 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
                 TimeUnit.MILLISECONDS
         );
 
-        pollingTasks.put(config.username(), pollingTask);
-        log.info("Started polling monitoring for mailbox: {}", config.username());
+        pollingTasks.put(mailboxKey, pollingTask);
+        log.info("Started polling monitoring for mailbox: {} with user {}", config.username(), config.userId());
     }
 
     private String getMessageId(Message message, String email) throws MessagingException {
@@ -222,40 +230,55 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
     }
 
     @Override
-    public Map<String, Boolean> getMailboxConnectionStates() {
+    public Map<String, Boolean> getMailboxConnectionStates(String userId) {
         Map<String, Boolean> states = new HashMap<>();
-        pollingTasks.forEach((email, future) -> {
-            states.put(email, !future.isDone() && !future.isCancelled());
+        pollingTasks.forEach((key, future) -> {
+            if (key.endsWith("_" + userId)) {
+                String email = key.substring(0, key.lastIndexOf('_'));
+                states.put(email, !future.isDone() && !future.isCancelled());
+            }
         });
         return states;
     }
 
     @Override
-    public void stopMailboxMonitoring(String email) {
-        ScheduledFuture<?> task = pollingTasks.remove(email);
+    public void stopMailboxMonitoring(String email, String userId) {
+        String mailboxKey = getMailboxKey(email, userId);
+        ScheduledFuture<?> task = pollingTasks.remove(mailboxKey);
         if (task != null) {
             task.cancel(true);
         }
-        mailboxConfigs.remove(email);
-        lastCheckTimes.remove(email);
-        initialConnectionNotified.remove(email);
-        log.info("Stopped monitoring mailbox: {}", email);
+        mailboxConfigs.remove(mailboxKey);
+        lastCheckTimes.remove(mailboxKey);
+        initialConnectionNotified.remove(mailboxKey);
+        log.info("Stopped monitoring mailbox: {} for user {}", email, userId);
     }
 
     @Override
-    public void stopAllMailboxMonitoring() {
-        pollingTasks.forEach((_, task) -> task.cancel(true));
-        pollingTasks.clear();
-        mailboxConfigs.clear();
-        lastCheckTimes.clear();
-        processedMessageIds.clear();
-        log.info("Stopped monitoring all mailboxes");
+    public void stopAllMailboxMonitoring(String userId) {
+        pollingTasks.forEach((key, task) -> {
+            if (key.endsWith("_" + userId)) {
+                task.cancel(true);
+                String email = key.substring(0, key.lastIndexOf('_'));
+                mailboxConfigs.remove(key);
+                lastCheckTimes.remove(key);
+                initialConnectionNotified.remove(key);
+                log.info("Stopped monitoring mailbox: {} for user {}", email, userId);
+            }
+        });
     }
 
     @PreDestroy
     public void cleanup() {
         isRunning = false;
-        stopAllMailboxMonitoring();
+
+        Set<String> allUserIds = new HashSet<>();
+        pollingTasks.keySet().forEach(key -> {
+            String userId = key.substring(key.lastIndexOf('_') + 1);
+            allUserIds.add(userId);
+        });
+
+        allUserIds.forEach(this::stopAllMailboxMonitoring);
 
         scheduledExecutor.shutdown();
         phishingScanExecutor.shutdown();

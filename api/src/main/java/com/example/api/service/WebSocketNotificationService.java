@@ -12,31 +12,47 @@ import com.example.api.model.ScanLog;
 public class WebSocketNotificationService {
     private final SimpMessagingTemplate messagingTemplate;
 
-    public void notifyThreatDetected(String email, ScanLog scanLog) {
+    private String getTopicPath(String basePath, String email, String userId) {
+        return basePath + "/" + email + "/" + userId;
+    }
+
+    public void notifyThreatDetected(String email, String userId, ScanLog scanLog) {
         ThreatNotification notification = new ThreatNotification(
                 scanLog.getThreatLevel()
         );
 
-        messagingTemplate.convertAndSend("/topic/emails/" + email, notification);
+        messagingTemplate.convertAndSend(
+                getTopicPath("/topic/emails", email, userId),
+                notification
+        );
     }
 
-    public void notifyConnectionError(String email) {
+    public void notifyConnectionError(String email, String userId, String cause) {
         WebSocketResponse notification = new WebSocketResponse(
-                "ERROR"
+                "ERROR", cause
         );
 
-        messagingTemplate.convertAndSend("/topic/connect/" + email, notification);
+        messagingTemplate.convertAndSend(
+                getTopicPath("/topic/connect", email, userId),
+                notification
+        );
     }
 
-    public void notifyConnectionSuccess(String email) {
+    public void notifyConnectionSuccess(String email, String userId) {
         WebSocketResponse notification = new WebSocketResponse(
-                "SUCCESS"
+                "SUCCESS", ""
         );
 
-        messagingTemplate.convertAndSend("/topic/connect/" + email, notification);
+        messagingTemplate.convertAndSend(
+                getTopicPath("/topic/connect", email, userId),
+                notification
+        );
     }
 
-    public void sendScanLog(String email, ScanLog scanLog) {
-        messagingTemplate.convertAndSend("/topic/scanlog/" + email, scanLog);
+    public void sendScanLog(String email, String userId, ScanLog scanLog) {
+        messagingTemplate.convertAndSend(
+                getTopicPath("/topic/scanlog", email, userId),
+                scanLog
+        );
     }
 }

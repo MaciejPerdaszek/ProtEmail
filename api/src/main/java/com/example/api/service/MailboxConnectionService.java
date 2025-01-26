@@ -5,11 +5,11 @@ import com.example.api.dto.EmailConfigRequest;
 
 public interface MailboxConnectionService {
 
-    Map<String, Boolean> getMailboxConnectionStates();
+    Map<String, Boolean> getMailboxConnectionStates(String userId);
 
-    void startMonitoring(EmailConfigRequest config, String currentUserId);
+    void startMonitoring(EmailConfigRequest config);
 
-    void stopMailboxMonitoring(String email);
+    void stopMailboxMonitoring(String email, String userId);
 
-    void stopAllMailboxMonitoring();
+    void stopAllMailboxMonitoring(String userId);
 }

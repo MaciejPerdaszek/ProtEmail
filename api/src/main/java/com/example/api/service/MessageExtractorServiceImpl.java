@@ -89,7 +89,7 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
         scanLog.setComment("URL scan in progress");
 
         ScanLog savedLog = scanLogRepository.save(scanLog);
-        notificationService.sendScanLog(emailContent.username(), savedLog);
+        notificationService.sendScanLog(emailContent.username(), emailContent.currentUserId(), savedLog);
         return savedLog;
     }
 
@@ -103,12 +103,13 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
         scanLog.setThreatLevel(scanResult.getRiskLevel());
         scanLog.setComment(String.join("; ", scanResult.getThreats()));
         ScanLog savedLog = scanLogRepository.save(scanLog);
-        notificationService.sendScanLog(scanLog.getMailbox().getEmail(), savedLog);
+        notificationService.sendScanLog(scanLog.getMailbox().getEmail(), savedLog.getMailbox().getUserId(), savedLog);
 
         if (!scanResult.getThreats().isEmpty() ||
                 !"Low".equalsIgnoreCase(scanResult.getRiskLevel())) {
             notificationService.notifyThreatDetected(
                     scanLog.getMailbox().getEmail(),
+                    scanLog.getMailbox().getUserId(),
                     savedLog
             );
         }
@@ -127,7 +128,7 @@ public class MessageExtractorServiceImpl implements MessageExtractorService {
         scanLog.setThreatLevel("Error");
         scanLog.setComment("Phishing scan aborted");
         ScanLog savedLog = scanLogRepository.save(scanLog);
-        notificationService.sendScanLog(scanLog.getMailbox().getEmail(), savedLog);
+        notificationService.sendScanLog(scanLog.getMailbox().getEmail(), savedLog.getMailbox().getUserId(), savedLog);
     }
 }
 

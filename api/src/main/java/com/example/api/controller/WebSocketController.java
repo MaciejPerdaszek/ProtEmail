@@ -32,7 +32,7 @@ public class WebSocketController {
         }
 
         log.info("WebSocket connection request received for email: {}", config.username());
-        mailboxConnectionService.startMonitoring(config, config.userId());
+        mailboxConnectionService.startMonitoring(config);
         log.info("Connected to mailbox: {}", config.username());
     }
 
@@ -44,7 +44,7 @@ public class WebSocketController {
             throw new AccessDeniedException("You can only disconnect from your own mailbox");
         }
 
-        mailboxConnectionService.stopMailboxMonitoring(request.email());
+        mailboxConnectionService.stopMailboxMonitoring(request.email(), request.userId());
         log.info("WebSocket disconnection request received for email: {}", request.email());
     }
 }

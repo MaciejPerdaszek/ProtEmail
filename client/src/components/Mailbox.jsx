@@ -14,14 +14,15 @@ export function Mailbox({ user }) {
 
     const {scannedMailboxes, initializeWebSocket, disconnectMailbox, synchronizeState} = useScanningStore();
 
-    // Synchronize state on component mount
     useEffect(() => {
         synchronizeState(user);
     }, []);
 
-    const currentMailboxState = scannedMailboxes[email] || {
+    const mailboxKey = `${email}_${user.sub}`;
+    const currentMailboxState = scannedMailboxes[mailboxKey] || {
         isScanning: false,
         lastScan: null,
+        emailsScanned: 0,
         threatsFound: 0
     };
 
@@ -110,7 +111,6 @@ export function Mailbox({ user }) {
                                 <span>{currentMailboxState.threatsFound}</span>
                             </Container>
                         </Container>
-
                     </Container>
 
                     {currentMailboxState.isScanning ? (

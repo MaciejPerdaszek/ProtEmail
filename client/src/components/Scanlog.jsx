@@ -93,9 +93,11 @@ export function ScanLog({user}) {
     };
 
     useEffect(() => {
-        const subscriptions = Object.entries(stompClients).map(([email, client]) => {
+        const subscriptions = Object.entries(stompClients).map(([mailboxKey, client]) => {
             if (client && client.connected) {
-                return client.subscribe(`/topic/scanlog/${email}`, (message) => {
+                const [email] = mailboxKey.split('_');
+
+                return client.subscribe(`/topic/scanlog/${email}/${user.sub}`, (message) => {
                     try {
                         const newLog = JSON.parse(message.body);
                         setLogs(prevLogs => {
@@ -119,7 +121,7 @@ export function ScanLog({user}) {
         return () => {
             subscriptions.forEach(subscription => subscription.unsubscribe());
         };
-    }, [stompClients, pageSize]);
+    }, [stompClients, pageSize, user.sub]);
 
     useEffect(() => {
         fetchMailboxes();

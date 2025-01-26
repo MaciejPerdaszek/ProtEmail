@@ -12,15 +12,17 @@ const useScanningStore = create(
 
             initializeWebSocket: (email, mailboxConfig) => {
                 const store = get();
-                if (!store.stompClients[email]) {
+                const mailboxKey = `${email}_${mailboxConfig.userId}`;
+
+                if (!store.stompClients[mailboxKey]) {
                     const client = new Client({
                         brokerURL: 'ws://localhost:8080/gs-guide-websocket',
                         reconnectDelay: 5000,
                         debug: (str) => console.log('STOMP debug: ' + str),
                         onConnect: () => {
-                            console.log("WebSocket connected for", email);
+                            console.log("WebSocket connected for", email, "user", mailboxConfig.userId);
 
-                            client.subscribe(`/topic/connect/${email}`, (message) => {
+                            client.subscribe(`/topic/connect/${email}/${mailboxConfig.userId}`, (message) => {
                                 try {
                                     const response = JSON.parse(message.body);
                                     console.log("Received message:", response);
@@ -30,25 +32,29 @@ const useScanningStore = create(
                                         set((state) => ({
                                             scannedMailboxes: {
                                                 ...state.scannedMailboxes,
-                                                [email]: {
-                                                    ...(state.scannedMailboxes[email] || {}),
+                                                [mailboxKey]: {
+                                                    ...(state.scannedMailboxes[mailboxKey] || {}),
                                                     isScanning: true,
                                                     lastScan: new Date().toISOString(),
-                                                    emailsScanned: state.scannedMailboxes[email]?.emailsScanned || 0,
-                                                    threatsFound: state.scannedMailboxes[email]?.threatsFound || 0
+                                                    emailsScanned: state.scannedMailboxes[mailboxKey]?.emailsScanned || 0,
+                                                    threatsFound: state.scannedMailboxes[mailboxKey]?.threatsFound || 0
                                                 }
                                             }
                                         }));
                                     } else if (response.error === "ERROR") {
-                                        toast(`Failed to connect to ${email}, Invalid credentials`, {type: 'error'});
-                                        store.disconnectMailbox(email, mailboxConfig.userId);
+                                        if(response.cause === "ALREADY_CONNECTED")
+                                            toast(`Already connected to ${email}`, {type: 'info'});
+                                        else {
+                                            toast(`Failed to connect to ${email}, ${response.cause}`, {type: 'error'});
+                                            store.disconnectMailbox(email, mailboxConfig.userId);
+                                        }
                                     }
                                 } catch (error) {
                                     console.error("Error parsing message:", error);
                                 }
                             });
 
-                            client.subscribe(`/topic/emails/${email}`, (message) => {
+                            client.subscribe(`/topic/emails/${email}/${mailboxConfig.userId}`, (message) => {
                                 try {
                                     const threatData = JSON.parse(message.body);
                                     console.log("Received threat data:", threatData);
@@ -56,12 +62,12 @@ const useScanningStore = create(
                                     set((state) => ({
                                         scannedMailboxes: {
                                             ...state.scannedMailboxes,
-                                            [email]: {
-                                                ...(state.scannedMailboxes[email] || {}),
-                                                emailsScanned: (state.scannedMailboxes[email]?.emailsScanned || 0) + 1,
+                                            [mailboxKey]: {
+                                                ...(state.scannedMailboxes[mailboxKey] || {}),
+                                                emailsScanned: (state.scannedMailboxes[mailboxKey]?.emailsScanned || 0) + 1,
                                                 threatsFound: (threatData.threatLevel === "High" || threatData.threatLevel === "Medium" || threatData.threatLevel === "Low"
-                                                    ? (state.scannedMailboxes[email]?.threatsFound || 0) + 1
-                                                    : state.scannedMailboxes[email]?.threatsFound || 0)
+                                                    ? (state.scannedMailboxes[mailboxKey]?.threatsFound || 0) + 1
+                                                    : state.scannedMailboxes[mailboxKey]?.threatsFound || 0)
                                             }
                                         }
                                     }));
@@ -82,8 +88,8 @@ const useScanningStore = create(
                             set((state) => ({
                                 scannedMailboxes: {
                                     ...state.scannedMailboxes,
-                                    [email]: {
-                                        ...(state.scannedMailboxes[email] || {}),
+                                    [mailboxKey]: {
+                                        ...(state.scannedMailboxes[mailboxKey] || {}),
                                         isScanning: true,
                                         lastScan: new Date().toISOString()
                                     }
@@ -96,8 +102,8 @@ const useScanningStore = create(
                             set((state) => ({
                                 scannedMailboxes: {
                                     ...state.scannedMailboxes,
-                                    [email]: {
-                                        ...(state.scannedMailboxes[email] || {}),
+                                    [mailboxKey]: {
+                                        ...(state.scannedMailboxes[mailboxKey] || {}),
                                         isScanning: false
                                     }
                                 }
@@ -106,33 +112,36 @@ const useScanningStore = create(
                     });
 
                     client.activate();
-                    store.setStompClient(email, client);
+                    store.setStompClient(mailboxKey, client);
                 }
             },
 
-            setStompClient: (email, client) => {
-                console.log('Setting STOMP client for', email);
+            setStompClient: (mailboxKey, client) => {
+                console.log('Setting STOMP client for', mailboxKey);
                 set((state) => ({
                     stompClients: {
                         ...state.stompClients,
-                        [email]: client
+                        [mailboxKey]: client
                     }
                 }));
             },
 
-            getStompClient: (email) => {
-                return get().stompClients[email];
+            getStompClient: (email, userId) => {
+                const mailboxKey = `${email}_${userId}`;
+                return get().stompClients[mailboxKey];
             },
 
-            removeStompClient: (email) => {
+            removeStompClient: (email, userId) => {
+                const mailboxKey = `${email}_${userId}`;
                 set((state) => {
-                    const { [email]: removed, ...rest } = state.stompClients;
+                    const { [mailboxKey]: removed, ...rest } = state.stompClients;
                     return { stompClients: rest };
                 });
             },
 
             disconnectMailbox: (email, userId) => {
-                const client = get().stompClients[email];
+                const mailboxKey = `${email}_${userId}`;
+                const client = get().stompClients[mailboxKey];
                 if (client) {
                     if (client.connected) {
                         client.publish({
@@ -146,13 +155,13 @@ const useScanningStore = create(
                     }
 
                     set((state) => {
-                        const { [email]: removed, ...rest } = state.stompClients;
+                        const { [mailboxKey]: removed, ...rest } = state.stompClients;
                         return {
                             stompClients: rest,
                             scannedMailboxes: {
                                 ...state.scannedMailboxes,
-                                [email]: {
-                                    ...(state.scannedMailboxes[email] || {}),
+                                [mailboxKey]: {
+                                    ...(state.scannedMailboxes[mailboxKey] || {}),
                                     isScanning: false
                                 }
                             }
@@ -163,30 +172,42 @@ const useScanningStore = create(
 
             disconnectAllMailboxes: (userId) => {
                 const clients = get().stompClients;
-                Object.keys(clients).forEach((email) => {
-                    const client = clients[email];
-                    if (client.connected) {
-                        client.publish({
-                            destination: '/api/disconnect',
-                            body: JSON.stringify({
-                                email: email,
-                                userId: userId
-                            })
-                        });
-                        client.deactivate();
+                Object.keys(clients).forEach((mailboxKey) => {
+                    if (mailboxKey.endsWith(`_${userId}`)) {
+                        const email = mailboxKey.split('_')[0];
+                        const client = clients[mailboxKey];
+                        if (client.connected) {
+                            client.publish({
+                                destination: '/api/disconnect',
+                                body: JSON.stringify({
+                                    email: email,
+                                    userId: userId
+                                })
+                            });
+                            client.deactivate();
+                        }
                     }
                 });
 
-                set({
-                    stompClients: {},
-                    scannedMailboxes: Object.keys(get().scannedMailboxes).reduce((acc, email) => ({
-                        ...acc,
-                        [email]: {
-                            ...(get().scannedMailboxes[email] || {}),
-                            isScanning: false
+                set((state) => ({
+                    stompClients: Object.keys(state.stompClients).reduce((acc, key) => {
+                        if (!key.endsWith(`_${userId}`)) {
+                            acc[key] = state.stompClients[key];
                         }
-                    }), {})
-                });
+                        return acc;
+                    }, {}),
+                    scannedMailboxes: Object.keys(state.scannedMailboxes).reduce((acc, key) => {
+                        if (!key.endsWith(`_${userId}`)) {
+                            acc[key] = state.scannedMailboxes[key];
+                        } else {
+                            acc[key] = {
+                                ...state.scannedMailboxes[key],
+                                isScanning: false
+                            };
+                        }
+                        return acc;
+                    }, {})
+                }));
             },
 
             synchronizeState: async (user) => {
@@ -194,13 +215,16 @@ const useScanningStore = create(
                     const serverStates = await MailboxConnectionService.fetchMailboxConnections(user.sub);
 
                     set((state) => ({
-                        scannedMailboxes: Object.keys(serverStates).reduce((acc, email) => ({
-                            ...acc,
-                            [email]: {
-                                ...(state.scannedMailboxes[email] || {}),
-                                isScanning: serverStates[email]
-                            }
-                        }), state.scannedMailboxes)
+                        scannedMailboxes: Object.keys(serverStates).reduce((acc, email) => {
+                            const mailboxKey = `${email}_${user.sub}`;
+                            return {
+                                ...acc,
+                                [mailboxKey]: {
+                                    ...(state.scannedMailboxes[mailboxKey] || {}),
+                                    isScanning: serverStates[email]
+                                }
+                            };
+                        }, state.scannedMailboxes)
                     }));
                 } catch (error) {
                     console.error('Failed to synchronize states:', error);
@@ -210,13 +234,13 @@ const useScanningStore = create(
         {
             name: 'mailbox-scanning-storage',
             partialize: (state) => ({
-                scannedMailboxes: Object.keys(state.scannedMailboxes).reduce((acc, email) => ({
+                scannedMailboxes: Object.keys(state.scannedMailboxes).reduce((acc, key) => ({
                     ...acc,
-                    [email]: {
-                        isScanning: state.scannedMailboxes[email].isScanning,
-                        lastScan: state.scannedMailboxes[email].lastScan,
-                        emailsScanned: state.scannedMailboxes[email].emailsScanned,
-                        threatsFound: state.scannedMailboxes[email].threatsFound
+                    [key]: {
+                        isScanning: state.scannedMailboxes[key].isScanning,
+                        lastScan: state.scannedMailboxes[key].lastScan,
+                        emailsScanned: state.scannedMailboxes[key].emailsScanned,
+                        threatsFound: state.scannedMailboxes[key].threatsFound
                     }
                 }), {})
             })

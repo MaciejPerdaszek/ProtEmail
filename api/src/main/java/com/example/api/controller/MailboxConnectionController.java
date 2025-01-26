@@ -26,7 +26,7 @@ public class MailboxConnectionController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        Map<String, Boolean> states = mailboxConnectionService.getMailboxConnectionStates();
+        Map<String, Boolean> states = mailboxConnectionService.getMailboxConnectionStates(userId);
         return ResponseEntity.ok(states);
     }
 }
