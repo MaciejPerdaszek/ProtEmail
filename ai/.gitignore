@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+env/
+venv/
+.env/
+.venv/
+.ai_venv/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+*.egg
+
+# Model files
+*.pkl
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# System
+.DS_Store
