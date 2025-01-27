@@ -36,7 +36,7 @@ export function Mailbox({ user }) {
                 host: mailbox.type,
                 port: "993",
                 username: email,
-                userId: mailbox.userId,
+                userId: user.sub,
             };
 
             await initializeWebSocket(email, mailboxConfig);

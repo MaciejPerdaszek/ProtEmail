@@ -55,7 +55,9 @@ export function DashBoard({user}) {
             await synchronizeState(user);
 
             mailboxes.forEach(mailbox => {
-                if (scannedMailboxes[mailbox.email]?.isScanning) {
+                const mailboxKey = `${mailbox.email}_${user.sub}`;
+
+                if (scannedMailboxes[mailboxKey]?.isScanning) {
                     const config = {
                         protocol: "imap",
                         host: mailbox.type,
@@ -63,16 +65,14 @@ export function DashBoard({user}) {
                         username: mailbox.email,
                         userId: user.sub
                     };
+                    console.log('Initializing WebSocket for:', mailboxKey);
                     initializeWebSocket(mailbox.email, config);
                 }
             });
         };
 
         initialize();
-
-        // const interval = setInterval(synchronizeState, 30000);
-        // return () => clearInterval(interval);
-    }, [mailboxes]);
+    }, [mailboxes, user.sub]);
 
     useEffect(() => {
         fetchMailboxes();
@@ -183,16 +183,20 @@ export function DashBoard({user}) {
     }, [navigate, scannedMailboxes]);
 
     const getMailboxesWithScanningState = useCallback(() => {
-        return mailboxes.map(mailbox => ({
-            ...mailbox,
-            scanningState: scannedMailboxes[mailbox.email] || {
-                isScanning: false,
-                lastScan: null,
-                scannedMailboxes: 0,
-                threatsFound: 0
-            }
-        }));
-    }, [mailboxes, scannedMailboxes]);
+        return mailboxes.map(mailbox => {
+            const mailboxKey = `${mailbox.email}_${user.sub}`;
+            return {
+                ...mailbox,
+                userId: user.sub,
+                scanningState: scannedMailboxes[mailboxKey] || {
+                    isScanning: false,
+                    lastScan: null,
+                    emailsScanned: 0,
+                    threatsFound: 0
+                }
+            };
+        });
+    }, [mailboxes, scannedMailboxes, user.sub]);
 
     const toggleDropdown = useCallback((index, e) => {
         e.stopPropagation();

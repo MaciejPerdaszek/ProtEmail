@@ -7,20 +7,12 @@ export function MailboxList({mailboxes, onEdit, onDelete, onNavigate, activeDrop
 
     const getMailboxStatus = (mailbox) => {
         const mailboxKey = `${mailbox.email}_${mailbox.userId}`;
-        const isScanning = scannedMailboxes[mailboxKey]?.isScanning;
-
-        if (isScanning) {
-            return '🟢 Scanning...';
-        }
-        return '⚪ Disconnected';
+        return scannedMailboxes[mailboxKey]?.isScanning ? '🟢 Scanning...' : '⚪ Disconnected';
     };
 
     const getStatusClass = (mailbox) => {
         const mailboxKey = `${mailbox.email}_${mailbox.userId}`;
-        const isScanning = scannedMailboxes[mailboxKey]?.isScanning;
-
-        if (isScanning) return 'scanning';
-        return 'disconnected';
+        return scannedMailboxes[mailboxKey]?.isScanning ? 'scanning' : 'disconnected';
     };
 
     return (

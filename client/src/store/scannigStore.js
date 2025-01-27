@@ -42,12 +42,8 @@ const useScanningStore = create(
                                             }
                                         }));
                                     } else if (response.error === "ERROR") {
-                                        if(response.cause === "ALREADY_CONNECTED")
-                                            toast(`Already connected to ${email}`, {type: 'info'});
-                                        else {
-                                            toast(`Failed to connect to ${email}, ${response.cause}`, {type: 'error'});
-                                            store.disconnectMailbox(email, mailboxConfig.userId);
-                                        }
+                                        toast(`Failed to connect to ${email}, ${response.cause}`, {type: 'error'});
+                                        store.disconnectMailbox(email, mailboxConfig.userId);
                                     }
                                 } catch (error) {
                                     console.error("Error parsing message:", error);

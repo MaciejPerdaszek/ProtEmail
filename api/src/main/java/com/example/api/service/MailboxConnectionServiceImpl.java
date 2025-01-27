@@ -104,7 +104,12 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
             Session session = Session.getInstance(createMailProperties());
             //session.setDebug(true);
             store = session.getStore(config.protocol());
-            store.connect(config.host(), config.username(), mailbox.getPassword());
+            try {
+                store.connect(config.host(), config.username(), mailbox.getPassword());
+            } catch (AuthenticationFailedException e) {
+                notificationService.notifyConnectionError(config.username(), config.userId(), "Invalid credentials");
+                return;
+            }
 
             if (initialConnectionNotified.add(mailboxKey)) {
                 notificationService.notifyConnectionSuccess(config.username(), config.userId());
@@ -182,7 +187,6 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
 
         if (pollingTasks.containsKey(mailboxKey)) {
             log.info("Mailbox {} for user {} is already being monitored", config.username(), config.userId());
-            notificationService.notifyConnectionError(config.username(), config.userId(), "ALREADY_CONNECTED");
             return;
         }
 
@@ -196,7 +200,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
                     } catch (Exception e) {
                         log.error("Error during polling: {}", e.getMessage());
                         stopMailboxMonitoring(config.username(), config.userId());
-                        notificationService.notifyConnectionError(config.username(), config.userId(), "Invalid credentials");
+                        notificationService.notifyConnectionError(config.username(), config.userId(), "Connection dropped by server");
                     }
                 },
                 0,
