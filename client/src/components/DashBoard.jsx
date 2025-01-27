@@ -124,7 +124,8 @@ export function DashBoard({user}) {
         e.preventDefault();
         setIsLoading(true);
         try {
-            if (scannedMailboxes[originalEmail]?.isScanning) {
+            const mailboxKey = `${originalEmail}_${user.sub}`;
+            if (scannedMailboxes[mailboxKey]?.isScanning) {
                 disconnectMailbox(originalEmail, user.sub);
             }
 
@@ -149,7 +150,8 @@ export function DashBoard({user}) {
 
         setIsLoading(true);
         try {
-            if (scannedMailboxes[selectedMailbox.email]?.isScanning) {
+            const mailboxKey = `${selectedMailbox.email}_${user.sub}`;
+            if (scannedMailboxes[mailboxKey]?.isScanning) {
                 disconnectMailbox(selectedMailbox.email, user.sub);
             }
 
