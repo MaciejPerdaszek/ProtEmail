@@ -34,7 +34,7 @@ public class ScanLogController {
             @AuthenticationPrincipal OAuth2User user
     ) {
 
-        if (!Objects.equals(user.getAttribute("sub"), userId)) {
+        if (user != null && !Objects.equals(user.getAttribute("sub"), userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 

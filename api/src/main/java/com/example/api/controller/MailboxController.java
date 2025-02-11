@@ -24,7 +24,7 @@ public class MailboxController {
     public ResponseEntity<List<Mailbox>> getUserMailboxes(@PathVariable String userId,
                                                           @AuthenticationPrincipal OAuth2User user) {
 
-        if (!Objects.equals(user.getAttribute("sub"), userId)) {
+        if (user != null && !Objects.equals(user.getAttribute("sub"), userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -36,7 +36,7 @@ public class MailboxController {
     public ResponseEntity<Mailbox> addMailbox(@RequestBody Mailbox mailbox, @PathVariable String userId,
                                               @AuthenticationPrincipal OAuth2User user) {
 
-        if (!Objects.equals(user.getAttribute("sub"), userId)) {
+        if (user != null && !Objects.equals(user.getAttribute("sub"), userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -49,7 +49,7 @@ public class MailboxController {
                                                  @PathVariable Long mailboxId,
                                                  @AuthenticationPrincipal OAuth2User user) {
 
-        if (!Objects.equals(user.getAttribute("sub"), userId)) {
+        if (user != null && !Objects.equals(user.getAttribute("sub"), userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -61,7 +61,7 @@ public class MailboxController {
     public ResponseEntity<Void> deleteMailbox(@PathVariable String userId, @PathVariable long mailboxId,
                                               @AuthenticationPrincipal OAuth2User user) {
 
-        if (!Objects.equals(user.getAttribute("sub"), userId)) {
+        if (user != null && !Objects.equals(user.getAttribute("sub"), userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 

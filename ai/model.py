@@ -78,7 +78,6 @@ class EmailPreprocessor:
             'uppercase_ratio': sum(1 for c in text if c.isupper()) / max(len(text), 1),
             'digit_ratio': sum(1 for c in text if c.isdigit()) / max(len(text), 1),
             'has_email': int(bool(re.search(self.email_pattern, text))),
-            'multiple_emails': int(len(re.findall(self.email_pattern, text)) > 1),
             'has_urgent': int(any(word in text_lower for word in self.urgent_words)),
             'has_money': int(any(word in text_lower for word in self.money_words)),
             'has_threat': int(any(word in text_lower for word in self.threat_words))
@@ -90,7 +89,7 @@ class EmailPreprocessor:
             'text_length', 'word_count', 'avg_word_length', 'url_count', 'has_shortened_url',
             'urgent_words_count', 'money_words_count', 'threat_words_count', 'exclamation_count',
             'question_count', 'special_chars_count', 'uppercase_ratio', 'digit_ratio',
-            'has_email', 'multiple_emails', 'has_urgent', 'has_money', 'has_threat'
+            'has_email', 'has_urgent', 'has_money', 'has_threat'
         ]}
 
     def preprocess_text(self, text: str) -> str:
@@ -134,9 +133,9 @@ def train_model(input_df: pd.DataFrame) -> tuple:
 
     classifier = xgb.XGBClassifier(
         objective='binary:logistic',
-        max_depth=6,
+        max_depth=10,
         learning_rate=0.1,
-        n_estimators=200,
+        n_estimators=300,
         subsample=0.8,
         colsample_bytree=0.8
     )

@@ -16,7 +16,7 @@ const useScanningStore = create(
 
                 if (!store.stompClients[mailboxKey]) {
                     const client = new Client({
-                        brokerURL: 'ws://localhost:8080/gs-guide-websocket',
+                        brokerURL: 'ws://localhost:8080/websocket',
                         reconnectDelay: 5000,
                         debug: (str) => console.log('STOMP debug: ' + str),
                         onConnect: () => {

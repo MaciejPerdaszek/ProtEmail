@@ -260,6 +260,7 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
 
     @Override
     public void stopAllMailboxMonitoring(String userId) {
+        List<String> keysToRemove = new ArrayList<>();
         pollingTasks.forEach((key, task) -> {
             if (key.endsWith("_" + userId)) {
                 task.cancel(true);
@@ -267,9 +268,11 @@ public class MailboxConnectionServiceImpl implements MailboxConnectionService {
                 mailboxConfigs.remove(key);
                 lastCheckTimes.remove(key);
                 initialConnectionNotified.remove(key);
+                keysToRemove.add(key);
                 log.info("Stopped monitoring mailbox: {} for user {}", email, userId);
             }
         });
+        keysToRemove.forEach(pollingTasks::remove);
     }
 
     @PreDestroy

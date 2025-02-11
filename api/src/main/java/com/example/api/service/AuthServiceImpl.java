@@ -12,16 +12,13 @@ import java.util.Map;
 public class AuthServiceImpl implements AuthService {
 
     private final String clientId;
-    private final String clientSecret;
     private final String domain;
 
     @Autowired
     public AuthServiceImpl(
             @Value("${oauth2.management.client-id}") String clientId,
-            @Value("${oauth2.management.client-secret}") String clientSecret,
             @Value("${okta.oauth2.issuer}") String domain) {
         this.clientId = clientId;
-        this.clientSecret = clientSecret;
         this.domain = domain;
     }
 
